@@ -291,7 +291,7 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                 {/* 実際に表示される線 */}
                 <path
                   d={dPath || undefined}
-                  className={`mindmap-link transition-all duration-300 pointer-events-none group-hover/link:stroke-rose-500 group-hover/link:stroke-[4px] ${isCriticalPath ? 'stroke-orange-500 stroke-[4px] opacity-100' : 'opacity-40'}`}
+                  className={`mindmap-link transition-all duration-300 pointer-events-none stroke-[3px] group-hover/link:stroke-rose-500 group-hover/link:stroke-[4px] ${isCriticalPath ? 'stroke-orange-500 stroke-[4px] opacity-100' : 'stroke-slate-900 opacity-100'}`}
                 />
               </g>
             );
@@ -324,7 +324,7 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                 {/* 実際に表示される線 */}
                 <path
                   d={path}
-                  className={`custom-connector transition-all duration-300 pointer-events-none group-hover/conn:stroke-rose-500 group-hover/conn:stroke-[4px] ${isCritical ? 'stroke-orange-500 stroke-[4.5px] opacity-100 shadow-[0_0_10px_orange]' : 'stroke-slate-400 opacity-50'}`}
+                  className={`custom-connector transition-all duration-300 pointer-events-none stroke-[3px] group-hover/conn:stroke-rose-500 group-hover/conn:stroke-[4px] ${isCritical ? 'stroke-orange-500 stroke-[4.5px] opacity-100 shadow-[0_0_10px_orange]' : 'stroke-slate-900 opacity-100'}`}
                 />
               </g>
             );
