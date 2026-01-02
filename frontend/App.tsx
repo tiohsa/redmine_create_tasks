@@ -687,7 +687,7 @@ const App: React.FC = () => {
   }, []);
 
   return (
-    <div className="create-tasks-app flex flex-col h-screen min-h-[800px] w-full overflow-hidden">
+    <div className="create-tasks-app flex flex-col h-screen w-full overflow-hidden">
       <main className="flex-1 relative bg-slate-50 p-4">
         <MindMapCanvas
           ref={canvasRef}

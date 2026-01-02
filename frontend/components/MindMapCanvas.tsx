@@ -175,7 +175,7 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
 
       const transform = d3.zoomIdentity
         .translate(rect.width / 2, rect.height / 2)
-        .scale(1)
+        .scale(1.2)
         .translate(-rootNode.y, -rootNode.x);
 
       svg.transition().duration(750)
@@ -238,7 +238,7 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
   };
 
   return (
-    <div className="w-full h-full min-h-[420px] sm:min-h-[520px] cursor-grab active:cursor-grabbing overflow-hidden">
+    <div className="w-full h-full cursor-grab active:cursor-grabbing overflow-hidden">
       <svg
         ref={svgRef}
         className="w-full h-full outline-none"
