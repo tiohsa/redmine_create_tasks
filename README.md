@@ -1,11 +1,11 @@
 # Create Tasks Redmine Plugin
 
-A Redmine plugin designed for administrators to decompose a final goal into actionable tasks using AI.
+A Redmine plugin to decompose a final goal into actionable tasks using AI.
 
 ## Features
 
 - **AI-Powered Task Decomposition**: Uses AI (default: Gemini) to break down a "Final Output" goal into a list of specific tasks.
-- **Admin Access Only**: Restricted to Redmine administrators to ensure secure management.
+- **Issue Creation Permission-Based Access**: Accessible to users with `:add_issues` permission in the project.
 - **Project Menu Integration**: Accessible directly from the project menu for authorized users.
 
 ## Requirements
