@@ -118,3 +118,12 @@ en:
     forbidden:
       title: Access denied
       message: This page is available to administrators only.
+    pages:
+      new_page: New Page
+      add_page: Add Page
+      delete_page: Delete Page
+      delete_confirm: Delete this page?
+      rename_page: Rename Page
+      page_count: "%{current} / %{total}"
+      cannot_delete_last: Cannot delete the last page
+

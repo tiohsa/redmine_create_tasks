@@ -16,6 +16,13 @@ export interface Connection {
   toId: string;
 }
 
+export interface Page {
+  id: string;
+  title: string;
+  data: MindMapNode;
+  connections: Connection[];
+}
+
 export interface Point {
   x: number;
   y: number;

@@ -118,3 +118,12 @@ ja:
     forbidden:
       title: アクセス権限がありません
       message: この画面は管理者のみ利用できます。
+    pages:
+      new_page: 新しいページ
+      add_page: ページを追加
+      delete_page: ページを削除
+      delete_confirm: このページを削除しますか？
+      rename_page: ページ名を変更
+      page_count: "%{current} / %{total}"
+      cannot_delete_last: 最後のページは削除できません
+

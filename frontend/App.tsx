@@ -1,6 +1,6 @@
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { MindMapNode, Connection, TaskRegistrationResult } from './types';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { MindMapNode, Connection, TaskRegistrationResult, Page } from './types';
 import MindMapCanvas, { MindMapCanvasHandle } from './components/MindMapCanvas';
 import { Plus, Trash2, Cpu, Download, Undo, CalendarRange, Workflow, Target, Map as MapIcon, Send, Settings, Save, X } from 'lucide-react';
 import { expandNodeWithAI } from './services/geminiService';
@@ -12,6 +12,7 @@ import { registerTasks } from './services/taskRegistrationService';
 import { fetchMasterData, MasterData } from './services/masterDataService';
 import RegistrationSettingsDialog, { RegistrationSettings } from './components/RegistrationSettingsDialog';
 import { t } from './i18n';
+import PageTabBar from './components/PageTabBar';
 
 const todayIso = () => new Date().toISOString().split('T')[0];
 const createId = () => Math.random().toString(36).slice(2, 11);
@@ -48,14 +49,21 @@ const addDays = (dateStr: string, days: number): string => {
   return d.toISOString().split('T')[0];
 };
 
-const initialData: MindMapNode = {
+const createInitialData = (): MindMapNode => ({
   id: 'root',
   text: t('create_tasks.app.root_title', 'Final Deliverable'),
   endDate: todayIso(),
   startDate: todayIso(),
   effort: 1,
   children: []
-};
+});
+
+const createInitialPage = (): Page => ({
+  id: createId(),
+  title: t('create_tasks.pages.new_page', 'New Page'),
+  data: createInitialData(),
+  connections: []
+});
 
 const getProjectId = () => {
   const match = window.location.pathname.match(/projects\/([^\/]+)/);
@@ -91,24 +99,50 @@ const buildDependencyMap = (root: MindMapNode, connections: Connection[]): Map<s
 };
 
 const App: React.FC = () => {
-  const [mapTitle, setMapTitle] = useState(() => {
+  const [pages, setPages] = useState<Page[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved).mapTitle : t('create_tasks.app.default_title', 'Gemini Project Planner');
-    } catch { return t('create_tasks.app.default_title', 'Gemini Project Planner'); }
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Migration from old format
+        if (parsed.pages) {
+          return parsed.pages;
+        } else if (parsed.data) {
+          return [{
+            id: createId(),
+            title: parsed.mapTitle || t('create_tasks.pages.new_page', 'New Page'),
+            data: parsed.data,
+            connections: parsed.connections || []
+          }];
+        }
+      }
+      return [createInitialPage()];
+    } catch { return [createInitialPage()]; }
   });
-  const [data, setData] = useState<MindMapNode>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved).data : initialData;
-    } catch { return initialData; }
-  });
-  const [connections, setConnections] = useState<Connection[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved).connections : [];
-    } catch { return []; }
-  });
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
+
+  // Derived state from current page
+  const currentPage = pages[currentPageIndex] || pages[0];
+  const data = currentPage?.data || createInitialData();
+  const connections = currentPage?.connections || [];
+
+  const setData = useCallback((updater: MindMapNode | ((prev: MindMapNode) => MindMapNode)) => {
+    setPages(prevPages => {
+      const newPages = [...prevPages];
+      const newData = typeof updater === 'function' ? updater(newPages[currentPageIndex].data) : updater;
+      newPages[currentPageIndex] = { ...newPages[currentPageIndex], data: newData };
+      return newPages;
+    });
+  }, [currentPageIndex]);
+
+  const setConnections = useCallback((updater: Connection[] | ((prev: Connection[]) => Connection[])) => {
+    setPages(prevPages => {
+      const newPages = [...prevPages];
+      const newConns = typeof updater === 'function' ? updater(newPages[currentPageIndex].connections) : updater;
+      newPages[currentPageIndex] = { ...newPages[currentPageIndex], connections: newConns };
+      return newPages;
+    });
+  }, [currentPageIndex]);
   const [history, setHistory] = useState<{ data: MindMapNode, conns: Connection[] }[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isExpanding, setIsExpanding] = useState(false);
@@ -157,12 +191,10 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const saveData = {
-      mapTitle,
-      data,
-      connections
+      pages
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(saveData));
-  }, [mapTitle, data, connections]);
+  }, [pages]);
 
   const saveToHistory = useCallback(() => {
     setHistory(prev => [...prev, {
@@ -601,15 +633,58 @@ const App: React.FC = () => {
   }, [data, connections, criticalNodeIds]);
 
   const handleExport = () => {
-    const exportData = { title: mapTitle, data, connections };
+    const exportData = { title: currentPage.title, pages };
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", `${mapTitle}.json`);
+    downloadAnchorNode.setAttribute("download", `${currentPage.title}.json`);
     document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
   };
+
+  // Page management handlers
+  const handleAddPage = useCallback(() => {
+    const newPage = createInitialPage();
+    setPages(prev => [...prev, newPage]);
+    setCurrentPageIndex(pages.length);
+    setSelectedNodeId(null);
+    setNodeToEdit(null);
+    setCriticalNodeIds(new Set());
+    setCriticalConnIds(new Set());
+    setHistory([]);
+  }, [pages.length]);
+
+  const handleDeletePage = useCallback((index: number) => {
+    if (pages.length <= 1) return;
+    setPages(prev => prev.filter((_, i) => i !== index));
+    if (currentPageIndex >= index && currentPageIndex > 0) {
+      setCurrentPageIndex(currentPageIndex - 1);
+    }
+    setSelectedNodeId(null);
+    setNodeToEdit(null);
+    setCriticalNodeIds(new Set());
+    setCriticalConnIds(new Set());
+    setHistory([]);
+  }, [pages.length, currentPageIndex]);
+
+  const handleSwitchPage = useCallback((index: number) => {
+    if (index === currentPageIndex) return;
+    setCurrentPageIndex(index);
+    setSelectedNodeId(null);
+    setNodeToEdit(null);
+    setCriticalNodeIds(new Set());
+    setCriticalConnIds(new Set());
+    setHistory([]);
+  }, [currentPageIndex]);
+
+  const handleRenamePageTitle = useCallback((index: number, newTitle: string) => {
+    setPages(prev => {
+      const newPages = [...prev];
+      newPages[index] = { ...newPages[index], title: newTitle };
+      return newPages;
+    });
+  }, []);
 
   return (
     <div className="create-tasks-app flex flex-col h-screen min-h-[800px] w-full overflow-hidden">
@@ -819,6 +894,15 @@ const App: React.FC = () => {
             )}
           </div>
         )}
+
+        <PageTabBar
+          pages={pages}
+          currentPageIndex={currentPageIndex}
+          onSwitchPage={handleSwitchPage}
+          onAddPage={handleAddPage}
+          onDeletePage={handleDeletePage}
+          onRenamePageTitle={handleRenamePageTitle}
+        />
       </main>
 
       <AiTaskExtractModal
