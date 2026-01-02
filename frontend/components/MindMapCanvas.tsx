@@ -59,7 +59,7 @@ const splitTextForDisplay = (text: string): string[] => {
 };
 
 const NODE_WIDTH = 200;
-const NODE_HEIGHT = 100;
+const NODE_HEIGHT = 120;
 
 const buildTreeLayout = (data: MindMapNode) => {
   const treeLayout = d3.tree<MindMapNode>().nodeSize([120, 280]);
@@ -413,11 +413,11 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                     width={NODE_WIDTH - 10}
                     height={NODE_HEIGHT - 10}
                   >
-                    <div className="flex flex-col gap-1 p-1 h-full bg-white rounded-lg">
+                    <div className="flex flex-col gap-1.5 p-2 h-full bg-white rounded-lg">
                       <input
                         autoFocus
                         placeholder={t('create_tasks.canvas.task_name_placeholder', 'Task name')}
-                        className="w-full text-xs font-bold border-b border-slate-100 outline-none bg-white text-slate-900"
+                        className="w-full text-sm font-bold border-b border-slate-100 outline-none bg-white text-slate-900"
                         style={{ colorScheme: 'light' }}
                         value={node.data.text}
                         onChange={(e) => onUpdateNodeData(node.data.id, { text: e.target.value })}
@@ -427,7 +427,7 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                         <div className="flex gap-1 items-center">
                           <input
                             type="date"
-                            className="w-full text-[9px] text-slate-900 border-none outline-none bg-white cursor-pointer"
+                            className="w-full text-xs text-slate-900 border-none outline-none bg-white cursor-pointer"
                             style={{ colorScheme: 'light' }}
                             value={node.data.startDate || ''}
                             max={node.data.endDate || undefined}
@@ -455,7 +455,7 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                       <div className="flex gap-1 items-center">
                         <input
                           type="date"
-                          className="w-full text-[9px] text-slate-900 border-none outline-none bg-white cursor-pointer"
+                          className="w-full text-xs text-slate-900 border-none outline-none bg-white cursor-pointer"
                           style={{ colorScheme: 'light' }}
                           value={node.data.endDate || ''}
                           min={node.data.startDate || undefined}
@@ -481,13 +481,13 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                       </div>
                       {!isRoot && (
                         <div className="flex items-center gap-1">
-                          <span className="text-[9px] text-slate-400">
+                          <span className="text-xs text-slate-400">
                             {t('create_tasks.canvas.effort_label', 'Effort:')}
                           </span>
                           <input
                             type="number"
                             min="0"
-                            className="w-12 text-[9px] border-none outline-none bg-white text-slate-900 rounded px-1"
+                            className="w-14 text-xs border-none outline-none bg-white text-slate-900 rounded px-1"
                             style={{ colorScheme: 'light' }}
                             value={node.data.effort || 0}
                             onChange={(e) => {
@@ -534,12 +534,12 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                               >
                                 {isRoot
                                   ? t('create_tasks.canvas.root_due', 'Due: %{date}', {
-                                      date: node.data.endDate || t('create_tasks.canvas.date_unknown', 'TBD')
-                                    })
+                                    date: node.data.endDate || t('create_tasks.canvas.date_unknown', 'TBD')
+                                  })
                                   : t('create_tasks.canvas.date_range', '%{start} - %{end}', {
-                                      start: node.data.startDate || t('create_tasks.canvas.date_unknown', 'TBD'),
-                                      end: node.data.endDate || t('create_tasks.canvas.date_unknown', 'TBD')
-                                    })}
+                                    start: node.data.startDate || t('create_tasks.canvas.date_unknown', 'TBD'),
+                                    end: node.data.endDate || t('create_tasks.canvas.date_unknown', 'TBD')
+                                  })}
                               </text>
                             </g>
                           )}
