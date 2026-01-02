@@ -409,11 +409,11 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                 {isEditing ? (
                   <foreignObject
                     x={-NODE_WIDTH / 2 + 5}
-                    y={-NODE_HEIGHT / 2 + 5}
+                    y={-NODE_HEIGHT / 2 + 12}
                     width={NODE_WIDTH - 10}
                     height={NODE_HEIGHT - 10}
                   >
-                    <div className="flex flex-col gap-1.5 p-2 h-full bg-white rounded-lg">
+                    <div className="flex flex-col gap-1.5 p-1 h-full bg-white rounded-lg">
                       <input
                         autoFocus
                         placeholder={t('create_tasks.canvas.task_name_placeholder', 'Task name')}
