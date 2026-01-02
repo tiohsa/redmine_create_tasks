@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { MindMapNode, Connection, TaskRegistrationResult, Page } from './types';
 import MindMapCanvas, { MindMapCanvasHandle } from './components/MindMapCanvas';
-import { Plus, Trash2, Cpu, Download, Undo, CalendarRange, Workflow, Target, Map as MapIcon, Send, Settings, Save, X } from 'lucide-react';
+import { Plus, Trash2, Cpu, Download, Undo, CalendarRange, Workflow, Target, Map as MapIcon, Send, Settings, Save, X, Maximize, Minimize } from 'lucide-react';
 import { expandNodeWithAI } from './services/geminiService';
 import { expandNodeWithAzureOpenAi } from './services/azureOpenAiService';
 import { calculateCriticalPath } from './utils/cpm';
@@ -733,6 +733,19 @@ const App: React.FC = () => {
               title={t('create_tasks.app.undo', 'Undo')}
             >
               <Undo size={20} />
+            </button>
+            <button
+              onClick={() => {
+                if (document.fullscreenElement) {
+                  document.exitFullscreen();
+                } else {
+                  document.documentElement.requestFullscreen();
+                }
+              }}
+              className="p-3 bg-white text-slate-600 rounded-full shadow-md hover:bg-slate-50 transition-all"
+              title={t('create_tasks.app.fullscreen', 'Toggle Fullscreen')}
+            >
+              {document.fullscreenElement ? <Minimize size={20} /> : <Maximize size={20} />}
             </button>
             <button
               onClick={() => setIsSettingsOpen(true)}
