@@ -633,47 +633,9 @@ const App: React.FC = () => {
           onMoveNode={handleMoveNode}
         />
 
-        <div className="absolute top-4 right-4 md:top-8 md:right-8 flex flex-col gap-3">
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={handleRegisterIssues}
-              disabled={isRegistering}
-              className={`flex items-center gap-2 px-5 py-3 rounded-full shadow-lg font-medium transition-all ${isRegistering
-                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                : 'bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95'
-                }`}
-              title={t('create_tasks.app.register_button', 'Register Issues')}
-            >
-              <Send size={20} className={isRegistering ? 'animate-pulse' : ''} />
-              <span className="text-sm font-bold text-center leading-tight">
-                {isRegistering
-                  ? t('create_tasks.app.registering', 'Registering...')
-                  : t('create_tasks.app.register_button', 'Register Issues')}
-              </span>
-            </button>
-            <button
-              onClick={handleDetectCriticalPath}
-              className={`flex items-center gap-2 px-5 py-3 rounded-full shadow-lg font-medium transition-all ${criticalNodeIds.size > 0
-                ? 'bg-orange-600 text-white hover:bg-orange-700'
-                : 'bg-white text-slate-700 hover:bg-slate-50'
-                }`}
-              title={t('create_tasks.app.critical_path', 'Critical Path')}
-            >
-              <Workflow size={20} className={criticalNodeIds.size > 0 ? 'animate-pulse' : ''} />
-              <span className="text-sm font-bold text-center leading-tight">
-                {t('create_tasks.app.critical_path', 'Critical Path')}
-              </span>
-            </button>
-            <button
-              onClick={handleCalculateSchedule}
-              className="flex items-center gap-2 px-5 py-3 bg-emerald-600 text-white rounded-full shadow-lg font-medium hover:bg-emerald-700 active:scale-95 transition-all"
-              title={t('create_tasks.app.schedule_calc', 'Calculate Schedule')}
-            >
-              <CalendarRange size={20} />
-              <span className="text-sm font-bold text-center leading-tight">
-                {t('create_tasks.app.schedule_calc', 'Calculate Schedule')}
-              </span>
-            </button>
+        <div className="absolute top-4 right-4 md:top-8 md:right-8 flex flex-col gap-4 items-end pointer-events-none">
+          {/* Tools Group - Horizontal Layout */}
+          <div className="flex gap-2 pointer-events-auto">
             <button
               onClick={() => canvasRef.current?.focusRoot()}
               className="p-3 bg-white text-slate-600 rounded-full shadow-md hover:bg-slate-50 transition-all"
@@ -713,25 +675,14 @@ const App: React.FC = () => {
             </button>
           </div>
 
-          <div className="flex flex-wrap gap-2 items-center">
-            <button
-              onClick={() => selectedNodeId && selectedNodeId !== 'root' && handleDeleteNode(selectedNodeId)}
-              disabled={!selectedNodeId || selectedNodeId === 'root'}
-              className={`flex items-center justify-center gap-2 px-5 py-3 rounded-full shadow-lg text-sm font-bold min-w-[100px] transition-all ${!selectedNodeId || selectedNodeId === 'root'
-                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                  : 'bg-white text-rose-600 border border-rose-100 hover:bg-rose-50 active:scale-95'
-                }`}
-            >
-              <Trash2 size={16} />
-              {t('create_tasks.app.delete', 'Delete')}
-            </button>
-
+          {/* Action Buttons Group - Vertical Layout */}
+          <div className="flex flex-col gap-3 items-end pointer-events-auto">
             <button
               onClick={() => selectedNodeId && handleAddNode(selectedNodeId, 'left')}
               disabled={!selectedNodeId}
-              className={`flex items-center justify-center gap-2 px-5 py-3 rounded-full shadow-lg text-sm font-bold transition-all ${!selectedNodeId
-                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                  : 'bg-blue-600 text-white hover:bg-blue-700 active:scale-95'
+              className={`flex items-center justify-center gap-2 px-5 py-3 rounded-full shadow-lg text-sm font-bold transition-all w-46 ${!selectedNodeId
+                ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-50'
+                : 'bg-blue-600 text-white hover:bg-blue-700 active:scale-95'
                 }`}
             >
               <Plus size={20} />
@@ -739,17 +690,71 @@ const App: React.FC = () => {
             </button>
 
             <button
+              onClick={() => selectedNodeId && selectedNodeId !== 'root' && handleDeleteNode(selectedNodeId)}
+              disabled={!selectedNodeId || selectedNodeId === 'root'}
+              className={`flex items-center justify-center gap-2 px-5 py-3 rounded-full shadow-lg text-sm font-bold transition-all w-46 ${!selectedNodeId || selectedNodeId === 'root'
+                ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-50'
+                : 'bg-white text-rose-600 border border-rose-100 hover:bg-rose-50 active:scale-95'
+                }`}
+            >
+              <Trash2 size={16} />
+              {t('create_tasks.app.delete', 'Delete')}
+            </button>
+
+            <button
+              onClick={handleCalculateSchedule}
+              className="flex items-center justify-center gap-2 px-5 py-3 bg-emerald-600 text-white rounded-full shadow-lg font-medium hover:bg-emerald-700 active:scale-95 transition-all w-46"
+              title={t('create_tasks.app.schedule_calc', 'Calculate Schedule')}
+            >
+              <CalendarRange size={20} />
+              <span className="text-sm font-bold text-center leading-tight">
+                {t('create_tasks.app.schedule_calc', 'Calculate Schedule')}
+              </span>
+            </button>
+
+            <button
+              onClick={handleDetectCriticalPath}
+              className={`flex items-center justify-center gap-2 px-5 py-3 rounded-full shadow-lg font-medium transition-all w-46 ${criticalNodeIds.size > 0
+                ? 'bg-orange-600 text-white hover:bg-orange-700'
+                : 'bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              title={t('create_tasks.app.critical_path', 'Critical Path')}
+            >
+              <Workflow size={20} className={criticalNodeIds.size > 0 ? 'animate-pulse' : ''} />
+              <span className="text-sm font-bold text-center leading-tight">
+                {t('create_tasks.app.critical_path', 'Critical Path')}
+              </span>
+            </button>
+
+            <button
               onClick={() => selectedNodeId && handleAIExpand(selectedNodeId)}
               disabled={!selectedNodeId || isExpanding}
-              className={`flex items-center justify-center gap-2 px-5 py-3 rounded-full shadow-lg text-sm font-bold transition-all ${!selectedNodeId || isExpanding
-                  ? 'bg-purple-100 text-purple-400 cursor-not-allowed'
-                  : 'bg-purple-600 text-white hover:bg-purple-700 active:scale-95'
+              className={`flex items-center justify-center gap-2 px-5 py-3 rounded-full shadow-lg text-sm font-bold transition-all w-46 ${!selectedNodeId || isExpanding
+                ? 'bg-purple-100 text-purple-400 cursor-not-allowed opacity-50'
+                : 'bg-purple-600 text-white hover:bg-purple-700 active:scale-95'
                 }`}
             >
               <Cpu size={20} className={isExpanding ? 'animate-spin' : ''} />
               {isExpanding
                 ? t('create_tasks.app.ai_extracting', 'Extracting...')
                 : t('create_tasks.app.ai_extract', 'Extract with AI')}
+            </button>
+
+            <button
+              onClick={handleRegisterIssues}
+              disabled={isRegistering}
+              className={`flex items-center justify-center gap-2 px-5 py-3 rounded-full shadow-lg font-medium transition-all w-46 ${isRegistering
+                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                : 'bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95'
+                }`}
+              title={t('create_tasks.app.register_button', 'Register Issues')}
+            >
+              <Send size={20} className={isRegistering ? 'animate-pulse' : ''} />
+              <span className="text-sm font-bold text-center leading-tight">
+                {isRegistering
+                  ? t('create_tasks.app.registering', 'Registering...')
+                  : t('create_tasks.app.register_button', 'Register Issues')}
+              </span>
             </button>
           </div>
         </div>
