@@ -1,0 +1,18 @@
+<p>
+  <label for="settings_ai_provider"><%= l('create_tasks.settings.ai_provider') %></label>
+  <%= select_tag 'settings[ai_provider]', options_for_select(['gemini', 'azure-openai'], @settings['ai_provider']) %>
+</p>
+
+<p>
+  <label for="settings_ai_prompt"><%= l('create_tasks.settings.ai_prompt') %></label>
+  <%= text_area_tag 'settings[ai_prompt]', @settings['ai_prompt'], rows: 5, style: 'width: 100%' %>
+</p>
+
+<p>
+  <label for="settings_issue_tracker_id"><%= l('create_tasks.settings.default_tracker') %></label>
+  <%= select_tag(
+        'settings[issue_tracker_id]',
+        options_from_collection_for_select(Tracker.all, :id, :name, @settings['issue_tracker_id']),
+        include_blank: true
+      ) %>
+</p>

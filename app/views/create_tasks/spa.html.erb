@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <%= csrf_meta_tags %>
+  <% translations = {
+    'create_tasks.common.none' => I18n.t('create_tasks.common.none'),
+    'create_tasks.common.close' => I18n.t('create_tasks.common.close'),
+    'create_tasks.common.cancel' => I18n.t('create_tasks.common.cancel'),
+    'create_tasks.common.save' => I18n.t('create_tasks.common.save'),
+    'create_tasks.common.loading' => I18n.t('create_tasks.common.loading'),
+    'create_tasks.app.default_title' => I18n.t('create_tasks.app.default_title'),
+    'create_tasks.app.default_prompt' => I18n.t('create_tasks.app.default_prompt'),
+    'create_tasks.app.root_title' => I18n.t('create_tasks.app.root_title'),
+    'create_tasks.app.root_missing' => I18n.t('create_tasks.app.root_missing'),
+    'create_tasks.app.new_task' => I18n.t('create_tasks.app.new_task'),
+    'create_tasks.app.ai_extract_failed' => I18n.t('create_tasks.app.ai_extract_failed'),
+    'create_tasks.app.ai_settings_load_failed' => I18n.t('create_tasks.app.ai_settings_load_failed'),
+    'create_tasks.app.ai_settings_save_failed' => I18n.t('create_tasks.app.ai_settings_save_failed'),
+    'create_tasks.app.ai_defaults_load_failed' => I18n.t('create_tasks.app.ai_defaults_load_failed'),
+    'create_tasks.app.register_no_tasks' => I18n.t('create_tasks.app.register_no_tasks'),
+    'create_tasks.app.register_failed' => I18n.t('create_tasks.app.register_failed'),
+    'create_tasks.app.move_invalid' => I18n.t('create_tasks.app.move_invalid'),
+    'create_tasks.app.cpm_not_found' => I18n.t('create_tasks.app.cpm_not_found'),
+    'create_tasks.app.register_title' => I18n.t('create_tasks.app.register_title'),
+    'create_tasks.app.register_button' => I18n.t('create_tasks.app.register_button'),
+    'create_tasks.app.registering' => I18n.t('create_tasks.app.registering'),
+    'create_tasks.app.critical_path' => I18n.t('create_tasks.app.critical_path'),
+    'create_tasks.app.schedule_calc' => I18n.t('create_tasks.app.schedule_calc'),
+    'create_tasks.app.focus_root' => I18n.t('create_tasks.app.focus_root'),
+    'create_tasks.app.focus_leaves' => I18n.t('create_tasks.app.focus_leaves'),
+    'create_tasks.app.undo' => I18n.t('create_tasks.app.undo'),
+    'create_tasks.app.export' => I18n.t('create_tasks.app.export'),
+    'create_tasks.app.register_settings' => I18n.t('create_tasks.app.register_settings'),
+    'create_tasks.app.delete' => I18n.t('create_tasks.app.delete'),
+    'create_tasks.app.add_prereq' => I18n.t('create_tasks.app.add_prereq'),
+    'create_tasks.app.ai_extract' => I18n.t('create_tasks.app.ai_extract'),
+    'create_tasks.app.ai_extracting' => I18n.t('create_tasks.app.ai_extracting'),
+    'create_tasks.app.success_count' => I18n.t('create_tasks.app.success_count'),
+    'create_tasks.app.sample_ids' => I18n.t('create_tasks.app.sample_ids'),
+    'create_tasks.app.failures' => I18n.t('create_tasks.app.failures'),
+    'create_tasks.app.warnings' => I18n.t('create_tasks.app.warnings'),
+    'create_tasks.app.guide_title' => I18n.t('create_tasks.app.guide_title'),
+    'create_tasks.app.guide_add_prereq' => I18n.t('create_tasks.app.guide_add_prereq'),
+    'create_tasks.app.guide_ai_extract' => I18n.t('create_tasks.app.guide_ai_extract'),
+    'create_tasks.app.guide_flow_order' => I18n.t('create_tasks.app.guide_flow_order'),
+    'create_tasks.app.guide_cpm' => I18n.t('create_tasks.app.guide_cpm'),
+    'create_tasks.ai_modal.title' => I18n.t('create_tasks.ai_modal.title'),
+    'create_tasks.ai_modal.close' => I18n.t('create_tasks.ai_modal.close'),
+    'create_tasks.ai_modal.provider' => I18n.t('create_tasks.ai_modal.provider'),
+    'create_tasks.ai_modal.reset_prompt' => I18n.t('create_tasks.ai_modal.reset_prompt'),
+    'create_tasks.ai_modal.reset_prompt_title' => I18n.t('create_tasks.ai_modal.reset_prompt_title'),
+    'create_tasks.ai_modal.prompt_label' => I18n.t('create_tasks.ai_modal.prompt_label'),
+    'create_tasks.ai_modal.loading' => I18n.t('create_tasks.ai_modal.loading'),
+    'create_tasks.ai_modal.results' => I18n.t('create_tasks.ai_modal.results'),
+    'create_tasks.ai_modal.selected_count' => I18n.t('create_tasks.ai_modal.selected_count'),
+    'create_tasks.ai_modal.empty' => I18n.t('create_tasks.ai_modal.empty'),
+    'create_tasks.ai_modal.save_settings' => I18n.t('create_tasks.ai_modal.save_settings'),
+    'create_tasks.ai_modal.save_title' => I18n.t('create_tasks.ai_modal.save_title'),
+    'create_tasks.ai_modal.cancel' => I18n.t('create_tasks.ai_modal.cancel'),
+    'create_tasks.ai_modal.generate' => I18n.t('create_tasks.ai_modal.generate'),
+    'create_tasks.ai_modal.regenerate' => I18n.t('create_tasks.ai_modal.regenerate'),
+    'create_tasks.ai_modal.apply' => I18n.t('create_tasks.ai_modal.apply'),
+    'create_tasks.registration.title' => I18n.t('create_tasks.registration.title'),
+    'create_tasks.registration.loading_failed' => I18n.t('create_tasks.registration.loading_failed'),
+    'create_tasks.registration.description_line1' => I18n.t('create_tasks.registration.description_line1'),
+    'create_tasks.registration.description_line2' => I18n.t('create_tasks.registration.description_line2'),
+    'create_tasks.registration.tracker' => I18n.t('create_tasks.registration.tracker'),
+    'create_tasks.registration.tracker_default' => I18n.t('create_tasks.registration.tracker_default'),
+    'create_tasks.registration.assignee' => I18n.t('create_tasks.registration.assignee'),
+    'create_tasks.registration.assignee_self' => I18n.t('create_tasks.registration.assignee_self'),
+    'create_tasks.registration.priority' => I18n.t('create_tasks.registration.priority'),
+    'create_tasks.registration.priority_default' => I18n.t('create_tasks.registration.priority_default'),
+    'create_tasks.registration.status' => I18n.t('create_tasks.registration.status'),
+    'create_tasks.registration.status_default' => I18n.t('create_tasks.registration.status_default'),
+    'create_tasks.registration.category' => I18n.t('create_tasks.registration.category'),
+    'create_tasks.registration.category_none' => I18n.t('create_tasks.registration.category_none'),
+    'create_tasks.registration.close' => I18n.t('create_tasks.registration.close'),
+    'create_tasks.registration.cancel' => I18n.t('create_tasks.registration.cancel'),
+    'create_tasks.registration.save' => I18n.t('create_tasks.registration.save'),
+    'create_tasks.canvas.task_name_placeholder' => I18n.t('create_tasks.canvas.task_name_placeholder'),
+    'create_tasks.canvas.effort_label' => I18n.t('create_tasks.canvas.effort_label'),
+    'create_tasks.canvas.man_days' => I18n.t('create_tasks.canvas.man_days'),
+    'create_tasks.canvas.date_unknown' => I18n.t('create_tasks.canvas.date_unknown'),
+    'create_tasks.canvas.date_range' => I18n.t('create_tasks.canvas.date_range'),
+    'create_tasks.canvas.root_due' => I18n.t('create_tasks.canvas.root_due'),
+    'create_tasks.canvas.detach_confirm' => I18n.t('create_tasks.canvas.detach_confirm'),
+    'create_tasks.header.edit_title' => I18n.t('create_tasks.header.edit_title'),
+    'create_tasks.header.subtitle' => I18n.t('create_tasks.header.subtitle'),
+    'create_tasks.errors.master_data_failed' => I18n.t('create_tasks.errors.master_data_failed')
+  } %>
+  <% fallback_translations = translations.keys.to_h { |key| [key, I18n.t(key, locale: I18n.default_locale)] } %>
+  <script>
+    window.createTasksI18n = <%= raw translations.to_json %>;
+    window.createTasksI18nFallback = <%= raw fallback_translations.to_json %>;
+  </script>
+  <title><%= l(:label_create_tasks) %></title>
+  <%= stylesheet_link_tag 'spa', plugin: 'create_tasks' %>
+  <style>
+    body {
+      margin: 0;
+      background: transparent;
+    }
+    .mindmap-node {
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .mindmap-link {
+      stroke: #cbd5e1;
+      stroke-width: 1.5px;
+      fill: none;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+    .mindmap-link:hover {
+      stroke: #f43f5e;
+      stroke-width: 3px;
+      opacity: 1 !important;
+    }
+    .custom-connector {
+      stroke: #94a3b8;
+      stroke-width: 2px;
+      fill: none;
+      opacity: 0.5;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .custom-connector:hover {
+      opacity: 1;
+      stroke: #f43f5e;
+      stroke-width: 3px;
+    }
+    @keyframes rapid-shake {
+      0% { transform: translateX(0); }
+      25% { transform: translateX(-3px); }
+      50% { transform: translateX(3px); }
+      75% { transform: translateX(-3px); }
+      100% { transform: translateX(0); }
+    }
+    .shake-on-hover:hover {
+      animation: rapid-shake 0.1s infinite;
+    }
+  </style>
+</head>
+<body>
+  <div id="root" class="create-tasks-root"></div>
+  <%= javascript_include_tag 'spa', plugin: 'create_tasks', type: 'module' %>
+</body>
+</html>

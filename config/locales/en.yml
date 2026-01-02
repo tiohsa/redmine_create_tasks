@@ -1,0 +1,120 @@
+en:
+  label_create_tasks: Create Tasks
+  label_create_tasks_register: Register Issues
+  label_create_tasks_register_result: Registration Result
+  label_create_tasks_register_success_count: Success Count
+  label_create_tasks_register_success_sample_ids: Sample Issue IDs
+  label_create_tasks_register_failures: Failures
+  label_create_tasks_register_warnings: Warnings
+  label_create_tasks_register_reason: Reason
+  label_create_tasks_register_task_id: Task ID
+  label_create_tasks_default_tracker: Default Tracker
+  create_tasks:
+    common:
+      none: None
+      close: Close
+      cancel: Cancel
+      save: Save
+      loading: Loading...
+    app:
+      default_title: Gemini Project Planner
+      default_prompt: Default prompt
+      root_title: Final Deliverable
+      root_missing: Root element was not found.
+      new_task: New Task
+      ai_extract_failed: Failed to extract tasks with AI.
+      ai_settings_load_failed: Failed to load AI settings.
+      ai_settings_save_failed: Failed to save AI settings.
+      ai_defaults_load_failed: Failed to load defaults.
+      register_no_tasks: No tasks to register.
+      register_failed: Failed to register issues.
+      move_invalid: Cannot move because the destination is a descendant.
+      cpm_not_found: No critical path found. Check task dates or dependencies.
+      register_title: Registration Result
+      register_button: Register Issues
+      registering: Registering...
+      critical_path: Critical Path
+      schedule_calc: Calculate Schedule
+      focus_root: Focus Root
+      focus_leaves: Focus Leaves
+      undo: Undo
+      export: Export
+      register_settings: Registration Settings
+      delete: Delete
+      add_prereq: Add Prerequisite
+      ai_extract: Extract with AI
+      ai_extracting: Extracting...
+      success_count: Success Count
+      sample_ids: Sample Issue IDs
+      failures: Failures
+      warnings: Warnings
+      guide_title: Guide
+      guide_add_prereq: Use the + on the left to add prerequisites
+      guide_ai_extract: Use AI extraction to chain tasks in order
+      guide_flow_order: Right to left indicates later to earlier work
+      guide_cpm: Use Critical Path to highlight blocking paths
+    ai_modal:
+      title: AI Task Extraction
+      close: Close
+      provider: AI Provider
+      reset_prompt: Load Defaults
+      reset_prompt_title: Reset prompt to defaults
+      prompt_label: Prompt
+      loading: Extracting...
+      results: Results
+      selected_count: "%{selected} / %{total} selected"
+      empty: No candidates. Enter a prompt and click Generate.
+      save_settings: Save Settings
+      save_title: Save current provider and prompt
+      cancel: Cancel
+      generate: Generate
+      regenerate: Regenerate
+      apply: Apply
+    registration:
+      title: Issue Registration Settings
+      loading_failed: Loading data or failed to load.
+      description_line1: Configure default values for issue creation.
+      description_line2: These values are used when not specified.
+      tracker: Tracker
+      tracker_default: (Project default)
+      assignee: Assignee
+      assignee_self: (Me)
+      priority: Priority
+      priority_default: "(Default: Normal)"
+      status: Status
+      status_default: "(Default: New)"
+      category: Category
+      category_none: (None)
+      close: Close
+      cancel: Cancel
+      save: Save
+    canvas:
+      task_name_placeholder: Task name
+      effort_label: "Effort:"
+      man_days: days
+      date_unknown: TBD
+      date_range: "%{start} - %{end}"
+      root_due: "Due: %{date}"
+      detach_confirm: "Detach connection to \"%{title}\"?\\n(The node will move under the root.)"
+    settings:
+      ai_provider: AI Provider
+      ai_prompt: Default Prompt
+      default_tracker: Default Tracker
+    header:
+      edit_title: Double-click to edit
+      subtitle: Redmine Plugin
+    errors:
+      no_permission: You do not have permission to create issues.
+      tracker_unavailable: Tracker is not available.
+      subject_missing: Subject is missing.
+      master_data_failed: Failed to load master data.
+    warnings:
+      tracker_default: Default tracker is not set; project default was used.
+      start_date_missing: Start date is missing, so it was left blank.
+      due_date_missing: Due date is missing, so it was left blank.
+      man_days_missing: Man-days is missing; estimated hours left blank.
+      dependency_missing: "Dependency task not found; could not create relation: %{dependency}"
+      dependency_create_failed: "Failed to create dependency: %{reason}"
+    forbidden:
+      title: Access denied
+      message: This page is available to administrators only.

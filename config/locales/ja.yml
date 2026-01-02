@@ -1,0 +1,120 @@
+ja:
+  label_create_tasks: タスク作成
+  label_create_tasks_register: チケット登録
+  label_create_tasks_register_result: 登録結果
+  label_create_tasks_register_success_count: 成功件数
+  label_create_tasks_register_success_sample_ids: 代表チケットID
+  label_create_tasks_register_failures: 失敗
+  label_create_tasks_register_warnings: 警告
+  label_create_tasks_register_reason: 理由
+  label_create_tasks_register_task_id: タスクID
+  label_create_tasks_default_tracker: デフォルトトラッカー
+  create_tasks:
+    common:
+      none: なし
+      close: 閉じる
+      cancel: キャンセル
+      save: 保存する
+      loading: 読み込み中...
+    app:
+      default_title: Gemini Project Planner
+      default_prompt: デフォルトプロンプト
+      root_title: 最終成果物
+      root_missing: root要素が見つかりませんでした。
+      new_task: 新しいタスク
+      ai_extract_failed: AIによるタスク抽出に失敗しました。
+      ai_settings_load_failed: AI設定の読み込みに失敗しました。
+      ai_settings_save_failed: AI設定の保存に失敗しました。
+      ai_defaults_load_failed: 規定値の読み込みに失敗しました。
+      register_no_tasks: 登録対象のタスクがありません。
+      register_failed: チケット登録に失敗しました。
+      move_invalid: 移動先が自身の子孫に含まれているため移動できません。
+      cpm_not_found: クリティカルパスが見つかりませんでした。タスクの日付や依存関係を確認してください。
+      register_title: 登録結果
+      register_button: チケット登録
+      registering: 登録中...
+      critical_path: クリティカルパス
+      schedule_calc: スケジュール計算
+      focus_root: 成果物にフォーカス
+      focus_leaves: 終端にフォーカス
+      undo: 元に戻す
+      export: エクスポート
+      register_settings: チケット設定
+      delete: 削除
+      add_prereq: 前提タスクを追加
+      ai_extract: AIでタスク抽出
+      ai_extracting: 抽出中...
+      success_count: 成功件数
+      sample_ids: 代表チケットID
+      failures: 失敗
+      warnings: 警告
+      guide_title: 操作ガイド
+      guide_add_prereq: ノード左端の「＋」で前提を追加
+      guide_ai_extract: 「AIでタスク抽出」で作業順に数珠つなぎ
+      guide_flow_order: ノードの位置（右→左）がそのまま作業順（後→先）
+      guide_cpm: 「クリティカルパス」で遅延厳禁な経路を確認
+    ai_modal:
+      title: AIタスク抽出
+      close: 閉じる
+      provider: AI提供元
+      reset_prompt: 規定値を読み出す
+      reset_prompt_title: プロンプトを初期状態に戻す
+      prompt_label: プロンプト
+      loading: 抽出中...
+      results: 抽出結果
+      selected_count: "%{selected} / %{total} 選択中"
+      empty: 候補がありません。プロンプトを入力して「生成する」を押してください。
+      save_settings: 設定を保存
+      save_title: 現在のプロバイダとプロンプトを保存する
+      cancel: キャンセル
+      generate: 生成する
+      regenerate: 再生成する
+      apply: 反映する
+    registration:
+      title: チケット登録設定
+      loading_failed: データを読み込み中または読み込みに失敗しました。
+      description_line1: チケット作成時のデフォルト値を設定します。
+      description_line2: 個別に指定がない場合、これらの値が適用されます。
+      tracker: トラッカー
+      tracker_default: （プロジェクト規定値）
+      assignee: 担当者
+      assignee_self: （自分）
+      priority: 優先度
+      priority_default: "（デフォルト: 通常）"
+      status: ステータス
+      status_default: "（デフォルト: 新規）"
+      category: カテゴリ
+      category_none: （なし）
+      close: 閉じる
+      cancel: キャンセル
+      save: 保存する
+    canvas:
+      task_name_placeholder: タスク名
+      effort_label: "工数:"
+      man_days: 人日
+      date_unknown: 未定
+      date_range: "%{start} 〜 %{end}"
+      root_due: "完了予定: %{date}"
+      detach_confirm: "「%{title}」への接続を解除しますか？\n（ノードはルート直下に移動します）"
+    settings:
+      ai_provider: AI提供元
+      ai_prompt: デフォルトプロンプト
+      default_tracker: デフォルトトラッカー
+    header:
+      edit_title: ダブルクリックして編集
+      subtitle: Redmine Plugin
+    errors:
+      no_permission: チケット作成権限がありません
+      tracker_unavailable: トラッカーが利用できません
+      subject_missing: 件名が未設定です
+      master_data_failed: マスタデータの取得に失敗しました
+    warnings:
+      tracker_default: デフォルトトラッカー未設定のためプロジェクト既定値を使用しました
+      start_date_missing: 開始日が未設定のため空欄のまま登録しました
+      due_date_missing: 終了日が未設定のため空欄のまま登録しました
+      man_days_missing: 人日が未設定のため予定工数は空欄です
+      dependency_missing: "依存タスクが見つからないため依存関係を作成できません: %{dependency}"
+      dependency_create_failed: "依存関係の作成に失敗しました: %{reason}"
+    forbidden:
+      title: アクセス権限がありません
+      message: この画面は管理者のみ利用できます。

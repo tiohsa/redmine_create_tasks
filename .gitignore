@@ -1,0 +1,21 @@
+# Node
+node_modules/
+dist/
+build/
+*.log
+.env*
+
+# Ruby
+.bundle/
+log/
+tmp/
+*.gem
+vendor/bundle/
+
+# OS/Editor
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.vscode/
+.idea/

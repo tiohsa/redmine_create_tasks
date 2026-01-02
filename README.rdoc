@@ -1,0 +1,19 @@
+= create_tasks
+
+Redmineの管理メニューからアクセスする管理者向けプラグイン画面です。
+未ログイン時はログイン画面へ誘導され、管理者以外はアクセスできません。
+
+== 開発手順
+
+1. Redmine起動
+   docker compose up -d
+
+2. フロントエンド依存関係のインストール
+   cd plugins/create-tasks/frontend
+   npm install
+
+3. フロントエンドビルド
+   npm run build
+
+4. Redmine再起動
+   docker compose restart redmine

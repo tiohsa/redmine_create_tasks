@@ -1,0 +1,58 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Tasks</title>
+  <style>
+    body {
+      margin: 0;
+      background: transparent;
+    }
+    .mindmap-node {
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .mindmap-link {
+      stroke: #cbd5e1;
+      stroke-width: 1.5px;
+      fill: none;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+    .mindmap-link:hover {
+      stroke: #f43f5e;
+      stroke-width: 3px;
+      opacity: 1 !important;
+    }
+    .custom-connector {
+      stroke: #94a3b8;
+      stroke-width: 2px;
+      fill: none;
+      opacity: 0.5;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .custom-connector:hover {
+      opacity: 1;
+      stroke: #f43f5e;
+      stroke-width: 3px;
+    }
+    @keyframes rapid-shake {
+      0% { transform: translateX(0); }
+      25% { transform: translateX(-3px); }
+      50% { transform: translateX(3px); }
+      75% { transform: translateX(-3px); }
+      100% { transform: translateX(0); }
+    }
+    .shake-on-hover:hover {
+      animation: rapid-shake 0.1s infinite;
+    }
+  </style>
+  <script type="module" crossorigin src="/plugin_assets/create_tasks/javascripts/spa.js"></script>
+  <link rel="stylesheet" crossorigin href="/plugin_assets/create_tasks/stylesheets/spa.css">
+</head>
+<body>
+  <div id="root" class="create-tasks-root"></div>
+</body>
+</html>
