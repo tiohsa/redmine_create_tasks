@@ -65,7 +65,7 @@ class CreateTasksController < ApplicationController
 
   def require_create_tasks_access
     return unless ensure_logged_in
-    authorize
+    deny_access unless User.current.allowed_to?(:add_issues, @project)
   end
 
   def assets_root

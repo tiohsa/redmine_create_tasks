@@ -13,7 +13,7 @@ Redmine::Plugin.register :create_tasks do
     permission :view_create_tasks, {
       create_tasks: [:index, :spa, :assets, :register_issues, :data],
       create_tasks_ai: [:settings, :update_settings, :extract, :defaults]
-    }, :require => :admin
+    }, :require => :member
   end
 
   menu :project_menu,
@@ -22,7 +22,7 @@ Redmine::Plugin.register :create_tasks do
        :caption => :label_create_tasks,
        :param => :project_id,
        :permission => :view_create_tasks,
-       :if => Proc.new { User.current.admin? }
+       :if => Proc.new { |project| User.current.allowed_to?(:add_issues, project) }
 
   settings default: {
     'ai_provider' => 'gemini',

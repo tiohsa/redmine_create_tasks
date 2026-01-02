@@ -1,0 +1,5 @@
+{
+  "name": "Gemini MindMapper",
+  "description": "AIの力を借りて、アイデアを無限に広げることができるインテリジェントなマインドマップ作成ツール。トピックを入力するだけで、Geminiが関連するサブトピックを提案し、思考の整理をサポートします。",
+  "requestFramePermissions": []
+}
