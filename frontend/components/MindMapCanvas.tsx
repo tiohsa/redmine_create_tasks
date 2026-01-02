@@ -530,7 +530,7 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                               <text
                                 dy={isRoot ? 0 : (isMultiLine ? 15 : 5)}
                                 textAnchor="middle"
-                                className={`font-bold text-[9px] ${isRoot ? 'fill-white/80' : 'fill-slate-500'}`}
+                                className={`font-bold text-[10px] ${isRoot ? 'fill-white/80' : 'fill-slate-500'}`}
                               >
                                 {isRoot
                                   ? t('create_tasks.canvas.root_due', 'Due: %{date}', {
@@ -548,7 +548,7 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                     })()}
 
                     {!isRoot && (
-                      <g transform={`translate(0, 34)`}>
+                      <g transform={`translate(0, 44)`}>
                         <rect
                           x="-30"
                           y="-8"
