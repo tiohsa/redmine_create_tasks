@@ -241,7 +241,7 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
     <div className="w-full h-full cursor-grab active:cursor-grabbing overflow-hidden">
       <svg
         ref={svgRef}
-        className="w-full h-full outline-none"
+        className="w-full h-full outline-none cursor-default"
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onClick={() => {
