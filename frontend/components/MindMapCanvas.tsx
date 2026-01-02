@@ -59,7 +59,7 @@ const splitTextForDisplay = (text: string): string[] => {
 };
 
 const NODE_WIDTH = 200;
-const NODE_HEIGHT = 120;
+const NODE_HEIGHT = 100;
 
 const buildTreeLayout = (data: MindMapNode) => {
   const treeLayout = d3.tree<MindMapNode>().nodeSize([120, 280]);
@@ -371,7 +371,7 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
               >
                 <rect
                   x={-NODE_WIDTH / 2}
-                  y={-NODE_HEIGHT / 2}
+                  y={-NODE_HEIGHT / 2 + 10}
                   width={NODE_WIDTH}
                   height={NODE_HEIGHT}
                   rx="12"
