@@ -1,56 +1,104 @@
 # Create Tasks Redmine Plugin
 
-A Redmine plugin to decompose a final goal into actionable tasks using AI.
+Create Tasks is a Redmine plugin that helps break down a final deliverable into actionable tasks, visualize dependencies, and register issues in bulk.
 
 ## Features
 
-- **AI-Powered Task Decomposition**: Uses AI (default: Gemini) to break down a "Final Output" goal into a list of specific tasks.
-- **Issue Creation Permission-Based Access**: Accessible to users with `:add_issues` permission in the project.
-- **Project Menu Integration**: Accessible directly from the project menu for authorized users.
+- Mind-map style task planning with prerequisites
+- AI-assisted task extraction (Gemini or Azure OpenAI)
+- Schedule calculation and critical path highlighting
+- Issue registration with configurable defaults
+- Multi-page planning, undo, and JSON export
+
+![alt text](./images/create_tasks.png)
 
 ## Requirements
 
 - Redmine
-- Node.js & npm (for building the frontend)
-- Docker (optional, for development environment)
+- Node.js and npm (for building frontend assets)
 
 ## Installation
 
-1. **Clone the Plugin**
-   Navigate to your Redmine plugins directory:
+1. **Install the plugin**
    ```bash
-   cd plugins/
+   cd /path/to/redmine/plugins
    git clone <repository-url> create_tasks
    ```
 
-2. **Install Frontend Dependencies**
-   Navigate to the frontend directory (if available for development):
+2. **Install frontend dependencies**
    ```bash
    cd create_tasks/frontend
    npm install
    ```
 
-3. **Build Frontend**
-   Compile the frontend assets:
+3. **Build frontend assets**
    ```bash
    npm run build
    ```
+   This writes compiled assets to `assets/javascripts/spa.js` and `assets/stylesheets/spa.css`.
 
 4. **Restart Redmine**
-   Restart your Redmine instance to apply changes.
-   If using Docker:
-   ```bash
-   docker compose restart redmine
-   ```
 
 ## Configuration
 
-Go to **Administration > Plugins > Create Tasks > Configure**.
+1. **Enable the module**
+   - Project Settings → Modules → enable **Create Tasks**.
 
-Available settings:
-- **AI Provider**: Select the AI provider (default: `gemini`).
-- **Issue Tracker ID**: Specify the Tracker ID for the tasks to be created.
-- **AI Prompt**: Customize the system prompt used for task decomposition.
+2. **Permissions**
+   - Grant the role the `view_create_tasks` permission.
+   - Users also need the standard `Add issues` permission to open the page.
+
+3. **Plugin settings**
+   - Administration → Plugins → Create Tasks → Configure.
+   - Settings: `ai_provider`, `ai_prompt`, `issue_tracker_id`.
+
+4. **Default prompt**
+   - See `lib/prompts/task_extraction_prompt.md` for the recommended prompt text.
+
+## AI Providers
+
+### Gemini
+
+Required environment variables:
+
+- `GEMINI_API_KEY`
+
+Optional:
+
+- `GEMINI_MODEL` (default: `gemini-2.5-flash`)
+
+### Azure OpenAI
+
+Required environment variables:
+
+- `AZURE_OPENAI_API_KEY`
+- `AZURE_OPENAI_ENDPOINT`
+- `AZURE_OPENAI_DEPLOYMENT`
+
+Optional:
+
+- `AZURE_OPENAI_API_VERSION` (default: `2024-02-15-preview`)
+
+Set these in the Redmine process environment (systemd, docker-compose, etc.).
+
+## Usage
+
+1. Open a project and select **Create Tasks** from the project menu.
+2. Build tasks in the mind map, set prerequisites, and calculate schedules/critical paths.
+3. Use **Extract with AI** to generate tasks, then register issues in bulk.
+4. Export the plan as JSON when needed.
+
+## Development
+
+- Run the frontend dev server:
+  ```bash
+  cd create_tasks/frontend
+  npm run dev
+  ```
+- Rebuild assets before deploying:
+  ```bash
+  npm run build
+  ```
 
 ## License
 
