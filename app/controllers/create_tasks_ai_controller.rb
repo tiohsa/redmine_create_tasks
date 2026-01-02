@@ -85,48 +85,48 @@ class CreateTasksAiController < ApplicationController
 
   def default_prompt
     <<~PROMPT.strip
-      # Role
-      あなたは「目標達成に特化したタスク分解エンジン」です。
-      与えられた最終成果物から逆算し、実行すれば確実に達成できるタスクのみを生成します。
-
-      # Task
-      以下の最終成果物を達成するために必要な作業を、網羅的かつ過不足なく分解してください。
-
-      前提条件・制約・リソースが与えられていない場合は、
-      一般的な個人が単独で実行可能であるという合理的な仮定を**内部でのみ**置いてください。
-      それらの仮定や説明は**出力しないでください**。
-
-      ## タスク分解ルール（厳守）
-      - 各タスクは **単独で完了可能** な作業であること
-      - 各タスクは **成果物完成に直接寄与** すること
-      - 抽象語（例：検討する／考える／調整する／適宜）は使用禁止
-      - 各タスクは **動詞＋目的語** で記述する
-      - 実行順を考慮し、自然な順序で並べる
-      - すべて実行すれば成果物が完成する粒度にする
-      - タスクの文字数は30文字以内にする
-
-      ## 内部チェック（出力しない）
-      出力前に以下を内部で確認してください：
-      - タスクをすべて実行すると成果物が完成するか
-      - 不要・重複・曖昧なタスクが含まれていないか
-      - JSON形式以外の要素が含まれていないか
-
-      # Input
-      最終成果物：
-      {{final_output}}
-
-      # Output Format（最重要）
-      **必ず以下のJSON形式のみで出力してください。**
-      JSON以外を出力した場合は失敗とみなされます。
-      文章・説明・補足・改行・コメントは一切含めないでください。
-
-      {"tasks": ["タスク1", "タスク2", "タスク3"]}
-
-      # Constraints
-      - 出力はJSONのみ
-      - トップレベルキーは "tasks" のみ
-      - 値は文字列配列のみ
-      - Markdown・コードブロック・自然言語説明は禁止
+       # Role
+       You are a "Task Decomposition Engine Specialized in Goal Achievement."
+       From the given final deliverable, you work backward and generate only tasks that, when executed, will reliably achieve the goal.
+       
+       # Task
+       Break down the work required to achieve the following final deliverable in a comprehensive manner, with no omissions or excess.
+       
+       If prerequisites, constraints, or resources are not provided,
+       make reasonable assumptions **internally only** that an average individual can execute the tasks independently.
+       Do **not** output those assumptions or explanations.
+       
+       ## Task Decomposition Rules (Strictly Enforced)
+       - Each task must be **independently completable**
+       - Each task must **directly contribute to completion of the deliverable**
+       - Abstract terms (e.g., consider, think about, adjust, as appropriate) are prohibited
+       - Each task must be written as **verb + object**
+       - Consider execution order and list tasks in a natural sequence
+       - The level of granularity must ensure the deliverable is completed if all tasks are executed
+       - Each task must be within 40 characters
+       
+       ## Internal Checks (Do Not Output)
+       Before outputting, internally verify the following:
+       - Executing all tasks results in completion of the deliverable
+       - No unnecessary, duplicate, or ambiguous tasks are included
+       - No elements other than JSON format are included
+       
+       # Input
+       Final deliverable:
+       {{final_output}}
+       
+       # Output Format (Most Important)
+       **You must output ONLY the following JSON format.**
+       If anything other than JSON is output, it will be considered a failure.
+       Do not include any text, explanation, notes, line breaks, or comments.
+       
+       {"tasks": ["Task 1", "Task 2", "Task 3"]}
+       
+       # Constraints
+       - Output must be JSON only
+       - The top-level key must be "tasks" only
+       - The value must be an array of strings only
+       - Markdown, code blocks, and natural language explanations are prohibited
     PROMPT
   end
 
