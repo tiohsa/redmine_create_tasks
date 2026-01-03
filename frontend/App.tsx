@@ -121,6 +121,10 @@ const App: React.FC = () => {
   });
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
 
+  // currentPageIndex を ref で保持し、常に最新の値を取得できるようにする
+  const currentPageIndexRef = useRef(currentPageIndex);
+  currentPageIndexRef.current = currentPageIndex;
+
   // Derived state from current page
   const currentPage = pages[currentPageIndex] || pages[0];
   const data = currentPage?.data || createInitialData();
@@ -128,21 +132,25 @@ const App: React.FC = () => {
 
   const setData = useCallback((updater: MindMapNode | ((prev: MindMapNode) => MindMapNode)) => {
     setPages(prevPages => {
+      const idx = currentPageIndexRef.current;
       const newPages = [...prevPages];
-      const newData = typeof updater === 'function' ? updater(newPages[currentPageIndex].data) : updater;
-      newPages[currentPageIndex] = { ...newPages[currentPageIndex], data: newData };
+      if (!newPages[idx]) return prevPages; // 安全チェック
+      const newData = typeof updater === 'function' ? updater(newPages[idx].data) : updater;
+      newPages[idx] = { ...newPages[idx], data: newData };
       return newPages;
     });
-  }, [currentPageIndex]);
+  }, []);
 
   const setConnections = useCallback((updater: Connection[] | ((prev: Connection[]) => Connection[])) => {
     setPages(prevPages => {
+      const idx = currentPageIndexRef.current;
       const newPages = [...prevPages];
-      const newConns = typeof updater === 'function' ? updater(newPages[currentPageIndex].connections) : updater;
-      newPages[currentPageIndex] = { ...newPages[currentPageIndex], connections: newConns };
+      if (!newPages[idx]) return prevPages; // 安全チェック
+      const newConns = typeof updater === 'function' ? updater(newPages[idx].connections) : updater;
+      newPages[idx] = { ...newPages[idx], connections: newConns };
       return newPages;
     });
-  }, [currentPageIndex]);
+  }, []);
   const [history, setHistory] = useState<{ data: MindMapNode, conns: Connection[] }[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isExpanding, setIsExpanding] = useState(false);
@@ -646,14 +654,20 @@ const App: React.FC = () => {
   // Page management handlers
   const handleAddPage = useCallback(() => {
     const newPage = createInitialPage();
-    setPages(prev => [...prev, newPage]);
-    setCurrentPageIndex(pages.length);
+    let newIndex = 0;
+    setPages(prev => {
+      newIndex = prev.length; // 新しいページのインデックス（追加後の配列の最後）
+      return [...prev, newPage];
+    });
+    // setPages の後に、取得した newIndex を使用して setCurrentPageIndex を呼ぶ
+    // React の batching により、同じイベントハンドラ内の複数の setState は一緒に処理される
+    setCurrentPageIndex(newIndex);
     setSelectedNodeId(null);
     setNodeToEdit(null);
     setCriticalNodeIds(new Set());
     setCriticalConnIds(new Set());
     setHistory([]);
-  }, [pages.length]);
+  }, []);
 
   const handleDeletePage = useCallback((index: number) => {
     if (pages.length <= 1) return;
