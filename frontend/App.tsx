@@ -51,7 +51,7 @@ const addDays = (dateStr: string, days: number): string => {
 
 const createInitialData = (): MindMapNode => ({
   id: 'root',
-  text: t('create_tasks.app.root_title', 'Final Deliverable'),
+  text: t('redmine_create_tasks.app.root_title', 'Final Deliverable'),
   endDate: todayIso(),
   startDate: todayIso(),
   effort: 1,
@@ -60,7 +60,7 @@ const createInitialData = (): MindMapNode => ({
 
 const createInitialPage = (): Page => ({
   id: createId(),
-  title: t('create_tasks.pages.new_page', 'New Page'),
+  title: t('redmine_create_tasks.pages.new_page', 'New Page'),
   data: createInitialData(),
   connections: []
 });
@@ -110,7 +110,7 @@ const App: React.FC = () => {
         } else if (parsed.data) {
           return [{
             id: createId(),
-            title: parsed.mapTitle || t('create_tasks.pages.new_page', 'New Page'),
+            title: parsed.mapTitle || t('redmine_create_tasks.pages.new_page', 'New Page'),
             data: parsed.data,
             connections: parsed.connections || []
           }];
@@ -150,7 +150,7 @@ const App: React.FC = () => {
   const [criticalNodeIds, setCriticalNodeIds] = useState<Set<string>>(new Set());
   const [criticalConnIds, setCriticalConnIds] = useState<Set<string>>(new Set());
   const [aiProvider, setAiProvider] = useState<'gemini' | 'azure-openai'>('gemini');
-  const [aiPrompt, setAiPrompt] = useState(t('create_tasks.app.default_prompt', 'Default prompt'));
+  const [aiPrompt, setAiPrompt] = useState(t('redmine_create_tasks.app.default_prompt', 'Default prompt'));
   const [aiTasks, setAiTasks] = useState<string[]>([]);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiModalOpen, setAiModalOpen] = useState(false);
@@ -167,7 +167,7 @@ const App: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [registrationSettings, setRegistrationSettings] = useState<RegistrationSettings>(() => {
     try {
-      const saved = localStorage.getItem(`create_tasks_settings_${getProjectId()}`);
+      const saved = localStorage.getItem(`redmine_create_tasks_settings_${getProjectId()}`);
       return saved ? JSON.parse(saved) : {};
     } catch { return {}; }
   });
@@ -186,7 +186,7 @@ const App: React.FC = () => {
 
   const handleSaveRegistrationSettings = useCallback((settings: RegistrationSettings) => {
     setRegistrationSettings(settings);
-    localStorage.setItem(`create_tasks_settings_${getProjectId()}`, JSON.stringify(settings));
+    localStorage.setItem(`redmine_create_tasks_settings_${getProjectId()}`, JSON.stringify(settings));
   }, []);
 
   useEffect(() => {
@@ -231,7 +231,7 @@ const App: React.FC = () => {
 
     const newNode: MindMapNode = {
       id: newNodeId,
-      text: t('create_tasks.app.new_task', 'New Task'),
+      text: t('redmine_create_tasks.app.new_task', 'New Task'),
       startDate: todayIso(),
       endDate: todayIso(),
       effort: 1,
@@ -351,7 +351,7 @@ const App: React.FC = () => {
       checkCircular(targetNode);
 
       if (isCircular) {
-        alert(t('create_tasks.app.move_invalid', 'Cannot move because the destination is a descendant.'));
+        alert(t('redmine_create_tasks.app.move_invalid', 'Cannot move because the destination is a descendant.'));
         return prev;
       }
 
@@ -418,7 +418,7 @@ const App: React.FC = () => {
     } catch (error) {
       const message = error instanceof Error && error.message
         ? error.message
-        : t('create_tasks.app.ai_extract_failed', 'Failed to extract tasks with AI.');
+        : t('redmine_create_tasks.app.ai_extract_failed', 'Failed to extract tasks with AI.');
       setAiError(message);
     } finally {
       setIsExpanding(false);
@@ -461,7 +461,7 @@ const App: React.FC = () => {
       setAiProvider(settings.provider);
       setAiPrompt(settings.prompt);
     } catch (error) {
-      setSettingsError(t('create_tasks.app.ai_settings_load_failed', 'Failed to load AI settings.'));
+      setSettingsError(t('redmine_create_tasks.app.ai_settings_load_failed', 'Failed to load AI settings.'));
     }
   }, []);
 
@@ -473,7 +473,7 @@ const App: React.FC = () => {
       setAiProvider(settings.provider);
       setAiPrompt(settings.prompt);
     } catch (error) {
-      setSettingsError(t('create_tasks.app.ai_settings_save_failed', 'Failed to save AI settings.'));
+      setSettingsError(t('redmine_create_tasks.app.ai_settings_save_failed', 'Failed to save AI settings.'));
     } finally {
       setIsSavingSettings(false);
     }
@@ -486,7 +486,7 @@ const App: React.FC = () => {
       setAiProvider(defaults.provider);
       setAiPrompt(defaults.prompt);
     } catch (error) {
-      setSettingsError(t('create_tasks.app.ai_defaults_load_failed', 'Failed to load defaults.'));
+      setSettingsError(t('redmine_create_tasks.app.ai_defaults_load_failed', 'Failed to load defaults.'));
     }
   }, []);
 
@@ -497,7 +497,7 @@ const App: React.FC = () => {
   const handleRegisterIssues = useCallback(async () => {
     const nodes = flattenNodes(data).filter(node => node.id !== 'root');
     if (nodes.length === 0) {
-      setRegisterError(t('create_tasks.app.register_no_tasks', 'No tasks to register.'));
+      setRegisterError(t('redmine_create_tasks.app.register_no_tasks', 'No tasks to register.'));
       setRegisterResult(null);
       return;
     }
@@ -525,7 +525,7 @@ const App: React.FC = () => {
       const result = await registerTasks(getProjectId(), payload);
       setRegisterResult(result);
     } catch (error) {
-      setRegisterError(t('create_tasks.app.register_failed', 'Failed to register issues.'));
+      setRegisterError(t('redmine_create_tasks.app.register_failed', 'Failed to register issues.'));
     } finally {
       setIsRegistering(false);
     }
@@ -626,7 +626,7 @@ const App: React.FC = () => {
     }
     const { criticalNodeIds: cNodes, criticalConnIds: cConns } = calculateCriticalPath(data, connections);
     if (cNodes.size === 0) {
-      alert(t('create_tasks.app.cpm_not_found', 'No critical path found. Check task dates or dependencies.'));
+      alert(t('redmine_create_tasks.app.cpm_not_found', 'No critical path found. Check task dates or dependencies.'));
     }
     setCriticalNodeIds(cNodes);
     setCriticalConnIds(cConns);
@@ -714,14 +714,14 @@ const App: React.FC = () => {
             <button
               onClick={() => canvasRef.current?.focusRoot()}
               className="p-3 bg-white text-slate-600 rounded-full shadow-md hover:bg-slate-50 transition-all"
-              title={t('create_tasks.app.focus_root', 'Focus Root')}
+              title={t('redmine_create_tasks.app.focus_root', 'Focus Root')}
             >
               <Target size={20} />
             </button>
             <button
               onClick={() => canvasRef.current?.focusLeafNodes()}
               className="p-3 bg-white text-slate-600 rounded-full shadow-md hover:bg-slate-50 transition-all"
-              title={t('create_tasks.app.focus_leaves', 'Focus Leaves')}
+              title={t('redmine_create_tasks.app.focus_leaves', 'Focus Leaves')}
             >
               <MapIcon size={20} />
             </button>
@@ -730,7 +730,7 @@ const App: React.FC = () => {
               disabled={history.length === 0}
               className={`p-3 rounded-full shadow-md transition-all ${history.length === 0 ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-600 hover:bg-slate-50'
                 }`}
-              title={t('create_tasks.app.undo', 'Undo')}
+              title={t('redmine_create_tasks.app.undo', 'Undo')}
             >
               <Undo size={20} />
             </button>
@@ -743,21 +743,21 @@ const App: React.FC = () => {
                 }
               }}
               className="p-3 bg-white text-slate-600 rounded-full shadow-md hover:bg-slate-50 transition-all"
-              title={t('create_tasks.app.fullscreen', 'Toggle Fullscreen')}
+              title={t('redmine_create_tasks.app.fullscreen', 'Toggle Fullscreen')}
             >
               {document.fullscreenElement ? <Minimize size={20} /> : <Maximize size={20} />}
             </button>
             <button
               onClick={() => setIsSettingsOpen(true)}
               className="p-3 bg-white text-slate-600 rounded-full shadow-md hover:bg-slate-50 transition-all"
-              title={t('create_tasks.app.register_settings', 'Registration Settings')}
+              title={t('redmine_create_tasks.app.register_settings', 'Registration Settings')}
             >
               <Settings size={20} />
             </button>
             <button
               onClick={handleExport}
               className="p-3 bg-white text-slate-600 rounded-full shadow-md hover:bg-slate-50 transition-all"
-              title={t('create_tasks.app.export', 'Export')}
+              title={t('redmine_create_tasks.app.export', 'Export')}
             >
               <Download size={20} />
             </button>
@@ -774,7 +774,7 @@ const App: React.FC = () => {
                 }`}
             >
               <Plus size={20} />
-              {t('create_tasks.app.add_prereq', 'Add Prerequisite')}
+              {t('redmine_create_tasks.app.add_prereq', 'Add Prerequisite')}
             </button>
 
             <button
@@ -786,17 +786,17 @@ const App: React.FC = () => {
                 }`}
             >
               <Trash2 size={16} />
-              {t('create_tasks.app.delete', 'Delete')}
+              {t('redmine_create_tasks.app.delete', 'Delete')}
             </button>
 
             <button
               onClick={handleCalculateSchedule}
               className="flex items-center justify-center gap-2 px-5 py-3 bg-emerald-600 text-white rounded-full shadow-lg font-medium hover:bg-emerald-700 active:scale-95 transition-all w-46"
-              title={t('create_tasks.app.schedule_calc', 'Calculate Schedule')}
+              title={t('redmine_create_tasks.app.schedule_calc', 'Calculate Schedule')}
             >
               <CalendarRange size={20} />
               <span className="text-sm font-bold text-center leading-tight">
-                {t('create_tasks.app.schedule_calc', 'Calculate Schedule')}
+                {t('redmine_create_tasks.app.schedule_calc', 'Calculate Schedule')}
               </span>
             </button>
 
@@ -806,11 +806,11 @@ const App: React.FC = () => {
                 ? 'bg-orange-600 text-white hover:bg-orange-700'
                 : 'bg-white text-slate-700 hover:bg-slate-50'
                 }`}
-              title={t('create_tasks.app.critical_path', 'Critical Path')}
+              title={t('redmine_create_tasks.app.critical_path', 'Critical Path')}
             >
               <Workflow size={20} className={criticalNodeIds.size > 0 ? 'animate-pulse' : ''} />
               <span className="text-sm font-bold text-center leading-tight">
-                {t('create_tasks.app.critical_path', 'Critical Path')}
+                {t('redmine_create_tasks.app.critical_path', 'Critical Path')}
               </span>
             </button>
 
@@ -824,8 +824,8 @@ const App: React.FC = () => {
             >
               <Cpu size={20} className={isExpanding ? 'animate-spin' : ''} />
               {isExpanding
-                ? t('create_tasks.app.ai_extracting', 'Extracting...')
-                : t('create_tasks.app.ai_extract', 'Extract with AI')}
+                ? t('redmine_create_tasks.app.ai_extracting', 'Extracting...')
+                : t('redmine_create_tasks.app.ai_extract', 'Extract with AI')}
             </button>
 
             <button
@@ -835,13 +835,13 @@ const App: React.FC = () => {
                 ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                 : 'bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95'
                 }`}
-              title={t('create_tasks.app.register_button', 'Register Issues')}
+              title={t('redmine_create_tasks.app.register_button', 'Register Issues')}
             >
               <Send size={20} className={isRegistering ? 'animate-pulse' : ''} />
               <span className="text-sm font-bold text-center leading-tight">
                 {isRegistering
-                  ? t('create_tasks.app.registering', 'Registering...')
-                  : t('create_tasks.app.register_button', 'Register Issues')}
+                  ? t('redmine_create_tasks.app.registering', 'Registering...')
+                  : t('redmine_create_tasks.app.register_button', 'Register Issues')}
               </span>
             </button>
           </div>
@@ -852,11 +852,11 @@ const App: React.FC = () => {
         {(registerResult || registerError) && (
           <div className="absolute top-4 right-4 md:top-8 md:right-8 bg-white/95 backdrop-blur rounded-2xl border border-slate-200 shadow-lg p-4 w-[320px] text-xs text-slate-600 z-10">
             <div className="flex items-center justify-between mb-2">
-              <p className="font-semibold text-slate-800">{t('create_tasks.app.register_title', 'Registration Result')}</p>
+              <p className="font-semibold text-slate-800">{t('redmine_create_tasks.app.register_title', 'Registration Result')}</p>
               <button
                 onClick={() => { setRegisterResult(null); setRegisterError(null); }}
                 className="text-slate-400 hover:text-slate-600 text-lg leading-none"
-                aria-label={t('create_tasks.common.close', 'Close')}
+                aria-label={t('redmine_create_tasks.common.close', 'Close')}
               >
                 ×
               </button>
@@ -867,18 +867,18 @@ const App: React.FC = () => {
             {registerResult && (
               <div className="space-y-2">
                 <div>
-                  <span className="font-semibold">{t('create_tasks.app.success_count', 'Success Count')}:</span> {registerResult.success_count}
+                  <span className="font-semibold">{t('redmine_create_tasks.app.success_count', 'Success Count')}:</span> {registerResult.success_count}
                 </div>
                 <div>
-                  <span className="font-semibold">{t('create_tasks.app.sample_ids', 'Sample Issue IDs')}:</span>{' '}
+                  <span className="font-semibold">{t('redmine_create_tasks.app.sample_ids', 'Sample Issue IDs')}:</span>{' '}
                   {registerResult.success_sample_ids.length > 0
                     ? registerResult.success_sample_ids.join(', ')
-                    : t('create_tasks.common.none', 'None')}
+                    : t('redmine_create_tasks.common.none', 'None')}
                 </div>
                 <div>
-                  <span className="font-semibold">{t('create_tasks.app.failures', 'Failures')}:</span>
+                  <span className="font-semibold">{t('redmine_create_tasks.app.failures', 'Failures')}:</span>
                   {registerResult.failures.length === 0 ? (
-                    <span> {t('create_tasks.common.none', 'None')}</span>
+                    <span> {t('redmine_create_tasks.common.none', 'None')}</span>
                   ) : (
                     <ul className="list-disc list-inside mt-1 space-y-1">
                       {registerResult.failures.map((failure, index) => (
@@ -890,9 +890,9 @@ const App: React.FC = () => {
                   )}
                 </div>
                 <div>
-                  <span className="font-semibold">{t('create_tasks.app.warnings', 'Warnings')}:</span>
+                  <span className="font-semibold">{t('redmine_create_tasks.app.warnings', 'Warnings')}:</span>
                   {registerResult.warnings.length === 0 ? (
-                    <span> {t('create_tasks.common.none', 'None')}</span>
+                    <span> {t('redmine_create_tasks.common.none', 'None')}</span>
                   ) : (
                     <ul className="list-disc list-inside mt-1 space-y-1">
                       {registerResult.warnings.map((warning, index) => (

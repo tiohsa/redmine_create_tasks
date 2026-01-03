@@ -59,13 +59,13 @@ const Header: React.FC<HeaderProps> = ({ title, onUpdateTitle }) => {
             <h1
               className="text-lg font-bold text-slate-800 cursor-pointer hover:bg-slate-50 px-1 rounded transition-colors select-none truncate"
               onDoubleClick={() => setIsEditing(true)}
-              title={t('create_tasks.header.edit_title', 'Double-click to edit')}
+              title={t('redmine_create_tasks.header.edit_title', 'Double-click to edit')}
             >
               {title}
             </h1>
           )}
           <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider leading-none ml-1">
-            {t('create_tasks.header.subtitle', 'Redmine Plugin')}
+            {t('redmine_create_tasks.header.subtitle', 'Redmine Plugin')}
           </p>
         </div>
       </div>

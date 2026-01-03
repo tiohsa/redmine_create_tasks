@@ -1,11 +1,11 @@
-require_relative '../../lib/create_tasks/issue_registration_result'
-require_relative '../../lib/create_tasks/issue_registration_service'
+require_relative '../../lib/redmine_create_tasks/issue_registration_result'
+require_relative '../../lib/redmine_create_tasks/issue_registration_service'
 
-class CreateTasksController < ApplicationController
+class RedmineCreateTasksController < ApplicationController
   layout 'base'
 
   before_action :find_project_by_project_id
-  before_action :require_create_tasks_access
+  before_action :require_redmine_create_tasks_access
 
   def index
   end
@@ -39,7 +39,7 @@ class CreateTasksController < ApplicationController
     # Strong parameters handling might be needed depending on Rails version/config,
     # but for now we expect a simple hash or nil.
     
-    service = CreateTasks::IssueRegistrationService.new(project: @project, user: User.current)
+    service = RedmineCreateTasks::IssueRegistrationService.new(project: @project, user: User.current)
     result = service.register(tasks, defaults: defaults)
     render json: result.to_h
   end
@@ -63,13 +63,13 @@ class CreateTasksController < ApplicationController
     false
   end
 
-  def require_create_tasks_access
+  def require_redmine_create_tasks_access
     return unless ensure_logged_in
     deny_access unless User.current.allowed_to?(:add_issues, @project)
   end
 
   def assets_root
-    Rails.root.join('plugins', 'create_tasks', 'frontend', 'dist', 'assets').expand_path
+    Rails.root.join('plugins', 'redmine_create_tasks', 'frontend', 'dist', 'assets').expand_path
   end
 
   def asset_path_for(requested)

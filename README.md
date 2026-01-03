@@ -10,7 +10,7 @@ Create Tasks is a Redmine plugin that helps break down a final deliverable into 
 - Issue registration with configurable defaults
 - Multi-page planning, undo, and JSON export
 
-![alt text](./images/create_tasks.png)
+![alt text](./images/redmine_create_tasks.png)
 
 ## Requirements
 
@@ -22,12 +22,12 @@ Create Tasks is a Redmine plugin that helps break down a final deliverable into 
 1. **Install the plugin**
    ```bash
    cd /path/to/redmine/plugins
-   git clone <repository-url> create_tasks
+   git clone <repository-url> redmine_create_tasks
    ```
 
 2. **Install frontend dependencies**
    ```bash
-   cd create_tasks/frontend
+   cd redmine_create_tasks/frontend
    npm install
    ```
 
@@ -45,7 +45,7 @@ Create Tasks is a Redmine plugin that helps break down a final deliverable into 
    - Project Settings → Modules → enable **Create Tasks**.
 
 2. **Permissions**
-   - Grant the role the `view_create_tasks` permission.
+   - Grant the role the `view_redmine_create_tasks` permission.
    - Users also need the standard `Add issues` permission to open the page.
 
 3. **Plugin settings**
@@ -92,7 +92,7 @@ Set these in the Redmine process environment (systemd, docker-compose, etc.).
 
 - Run the frontend dev server:
   ```bash
-  cd create_tasks/frontend
+  cd redmine_create_tasks/frontend
   npm run dev
   ```
 - Rebuild assets before deploying:

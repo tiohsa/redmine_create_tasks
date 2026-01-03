@@ -18,7 +18,7 @@ export const registerTasks = async (projectId: string, payload: RegisterPayload)
     'X-CSRF-Token': token || '',
   };
 
-  const response = await fetch(`/projects/${projectId}/create_tasks/issues`, {
+  const response = await fetch(`/projects/${projectId}/redmine_create_tasks/issues`, {
     method: 'POST',
     headers,
     body: JSON.stringify(payload),

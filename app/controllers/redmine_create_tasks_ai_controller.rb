@@ -2,7 +2,7 @@ require 'net/http'
 require 'json'
 require 'uri'
 
-class CreateTasksAiController < ApplicationController
+class RedmineCreateTasksAiController < ApplicationController
   class ConfigurationError < StandardError; end
   layout 'base'
 
@@ -76,11 +76,11 @@ class CreateTasksAiController < ApplicationController
   private
 
   def ai_provider
-    (Setting[:plugin_create_tasks] || {})['ai_provider'] || 'gemini'
+    (Setting[:plugin_redmine_create_tasks] || {})['ai_provider'] || 'gemini'
   end
 
   def ai_prompt
-    (Setting[:plugin_create_tasks] || {})['ai_prompt'] || default_prompt
+    (Setting[:plugin_redmine_create_tasks] || {})['ai_prompt'] || default_prompt
   end
 
   def default_prompt
@@ -131,7 +131,7 @@ class CreateTasksAiController < ApplicationController
   end
 
   def write_settings(provider, prompt)
-    Setting[:plugin_create_tasks] = (Setting[:plugin_create_tasks] || {}).merge(
+    Setting[:plugin_redmine_create_tasks] = (Setting[:plugin_redmine_create_tasks] || {}).merge(
       'ai_provider' => provider,
       'ai_prompt' => prompt
     )

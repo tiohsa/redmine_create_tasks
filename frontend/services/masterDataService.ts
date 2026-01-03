@@ -9,12 +9,12 @@ export interface MasterData {
 }
 
 export const fetchMasterData = async (projectId: string): Promise<MasterData> => {
-    const response = await fetch(`/projects/${projectId}/create_tasks/data`, {
+    const response = await fetch(`/projects/${projectId}/redmine_create_tasks/data`, {
         method: 'GET',
     });
 
     if (!response.ok) {
-        throw new Error(t('create_tasks.errors.master_data_failed', 'Failed to load master data.'));
+        throw new Error(t('redmine_create_tasks.errors.master_data_failed', 'Failed to load master data.'));
     }
 
     return response.json();

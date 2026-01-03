@@ -1,13 +1,13 @@
 require_relative '../test_helper'
 
-class CreateTasksAiControllerTest < ActionController::TestCase
-  include CreateTasksTestHelper
+class RedmineCreateTasksAiControllerTest < ActionController::TestCase
+  include RedmineCreateTasksTestHelper
 
   fixtures :projects, :users, :members, :roles, :member_roles, :enabled_modules
 
   def setup
     @project = Project.find(1)
-    create_tasks_login_as(User.find(1))
+    redmine_create_tasks_login_as(User.find(1))
   end
 
   def test_extract_returns_tasks

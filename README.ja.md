@@ -10,7 +10,7 @@ Create Tasks は、最終成果物から実行可能なタスクを分解し、�
 - 既定値付きのチケット一括登録
 - 複数ページ管理・Undo・JSON エクスポート
 
-![alt text](./images/create_tasks.png)
+![alt text](./images/redmine_create_tasks.png)
 
 ## 必要要件
 
@@ -22,12 +22,12 @@ Create Tasks は、最終成果物から実行可能なタスクを分解し、�
 1. **プラグインの配置**
    ```bash
    cd /path/to/redmine/plugins
-   git clone <repository-url> create_tasks
+   git clone <repository-url> redmine_create_tasks
    ```
 
 2. **フロントエンド依存のインストール**
    ```bash
-   cd create_tasks/frontend
+   cd redmine_create_tasks/frontend
    npm install
    ```
 
@@ -45,7 +45,7 @@ Create Tasks は、最終成果物から実行可能なタスクを分解し、�
    - プロジェクト設定 → モジュール → **Create Tasks** を有効化。
 
 2. **権限**
-   - ロールに `view_create_tasks` 権限を付与。
+   - ロールに `view_redmine_create_tasks` 権限を付与。
    - さらに通常の「チケット追加（Add issues）」権限も必要です。
 
 3. **プラグイン設定**
@@ -92,7 +92,7 @@ Redmine の起動環境（systemd や docker-compose など）に設定してく
 
 - フロントエンド開発サーバー起動:
   ```bash
-  cd create_tasks/frontend
+  cd redmine_create_tasks/frontend
   npm run dev
   ```
 - 配置前にビルド:

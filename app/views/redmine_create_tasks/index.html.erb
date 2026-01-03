@@ -1,0 +1,10 @@
+<%= stylesheet_link_tag 'redmine_create_tasks', plugin: 'redmine_create_tasks' %>
+<% spa_url = project_redmine_create_tasks_spa_path(@project) %>
+
+<div class="create-tasks-root">
+  <iframe
+    class="create-tasks-frame"
+    src="<%= spa_url %>"
+    loading="lazy"
+  ></iframe>
+</div>

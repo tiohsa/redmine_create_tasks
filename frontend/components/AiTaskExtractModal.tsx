@@ -72,12 +72,12 @@ const AiTaskExtractModal: React.FC<AiTaskExtractModalProps> = ({
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 flex-shrink-0">
           <div className="flex items-center gap-2">
             <Settings size={20} className="text-slate-600" />
-            <h2 className="text-lg font-bold text-slate-800">{t('create_tasks.ai_modal.title', 'AI Task Extraction')}</h2>
+            <h2 className="text-lg font-bold text-slate-800">{t('redmine_create_tasks.ai_modal.title', 'AI Task Extraction')}</h2>
           </div>
           <button
             className="text-slate-400 hover:text-slate-600 text-2xl leading-none"
             onClick={onClose}
-            aria-label={t('create_tasks.ai_modal.close', 'Close')}
+            aria-label={t('redmine_create_tasks.ai_modal.close', 'Close')}
           >
             ×
           </button>
@@ -88,7 +88,7 @@ const AiTaskExtractModal: React.FC<AiTaskExtractModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end bg-slate-50 p-4 rounded-xl border border-slate-100">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
-                {t('create_tasks.ai_modal.provider', 'AI Provider')}
+                {t('redmine_create_tasks.ai_modal.provider', 'AI Provider')}
               </label>
               <select
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-purple-500 outline-none"
@@ -103,17 +103,17 @@ const AiTaskExtractModal: React.FC<AiTaskExtractModalProps> = ({
               <button
                 onClick={onLoadDefaults}
                 className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-purple-600 transition-colors font-medium"
-                title={t('create_tasks.ai_modal.reset_prompt_title', 'Reset prompt to defaults')}
+                title={t('redmine_create_tasks.ai_modal.reset_prompt_title', 'Reset prompt to defaults')}
               >
                 <RotateCcw size={14} />
-                {t('create_tasks.ai_modal.reset_prompt', 'Load Defaults')}
+                {t('redmine_create_tasks.ai_modal.reset_prompt', 'Load Defaults')}
               </button>
             </div>
           </div>
 
           <div className="space-y-4">
             <label className="block text-sm font-semibold text-slate-700">
-              {t('create_tasks.ai_modal.prompt_label', 'Prompt')}
+              {t('redmine_create_tasks.ai_modal.prompt_label', 'Prompt')}
             </label>
             <textarea
               className="w-full rounded-lg border border-slate-200 p-3 text-sm text-slate-700 focus:ring-2 focus:ring-purple-500 outline-none"
@@ -125,7 +125,7 @@ const AiTaskExtractModal: React.FC<AiTaskExtractModalProps> = ({
             {loading && (
               <div className="flex items-center gap-2 text-sm text-slate-500 animate-pulse">
                 <div className="w-2 h-2 bg-slate-400 rounded-full"></div>
-                {t('create_tasks.ai_modal.loading', 'Extracting...')}
+                {t('redmine_create_tasks.ai_modal.loading', 'Extracting...')}
               </div>
             )}
 
@@ -138,11 +138,11 @@ const AiTaskExtractModal: React.FC<AiTaskExtractModalProps> = ({
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm font-semibold text-slate-700">
-                  {t('create_tasks.ai_modal.results', 'Results')}
+                  {t('redmine_create_tasks.ai_modal.results', 'Results')}
                 </p>
                 {tasks.length > 0 && (
                   <span className="text-xs text-slate-500">
-                    {t('create_tasks.ai_modal.selected_count', '%{selected} / %{total} selected', {
+                    {t('redmine_create_tasks.ai_modal.selected_count', '%{selected} / %{total} selected', {
                       selected: selectedIndices.size,
                       total: tasks.length
                     })}
@@ -153,7 +153,7 @@ const AiTaskExtractModal: React.FC<AiTaskExtractModalProps> = ({
                 {tasks.length === 0 ? (
                   <div className="h-full flex items-center justify-center">
                     <p className="text-sm text-slate-400">
-                      {t('create_tasks.ai_modal.empty', 'No candidates. Enter a prompt and click Generate.')}
+                      {t('redmine_create_tasks.ai_modal.empty', 'No candidates. Enter a prompt and click Generate.')}
                     </p>
                   </div>
                 ) : (
@@ -187,10 +187,10 @@ const AiTaskExtractModal: React.FC<AiTaskExtractModalProps> = ({
           <button
             onClick={onSaveSettings}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors"
-            title={t('create_tasks.ai_modal.save_title', 'Save current provider and prompt')}
+            title={t('redmine_create_tasks.ai_modal.save_title', 'Save current provider and prompt')}
           >
             <Save size={16} />
-            {t('create_tasks.ai_modal.save_settings', 'Save Settings')}
+            {t('redmine_create_tasks.ai_modal.save_settings', 'Save Settings')}
           </button>
 
           <div className="flex items-center gap-3">
@@ -198,7 +198,7 @@ const AiTaskExtractModal: React.FC<AiTaskExtractModalProps> = ({
               className="rounded-full border border-slate-200 px-5 py-2 text-sm font-medium text-slate-600 hover:bg-white transition-colors"
               onClick={onClose}
             >
-              {t('create_tasks.ai_modal.cancel', 'Cancel')}
+              {t('redmine_create_tasks.ai_modal.cancel', 'Cancel')}
             </button>
             <button
               className="rounded-full bg-slate-800 px-6 py-2 text-sm font-bold text-white hover:bg-slate-900 disabled:opacity-50 transition-all shadow-sm active:scale-95"
@@ -206,15 +206,15 @@ const AiTaskExtractModal: React.FC<AiTaskExtractModalProps> = ({
               disabled={loading}
             >
               {tasks.length === 0
-                ? t('create_tasks.ai_modal.generate', 'Generate')
-                : t('create_tasks.ai_modal.regenerate', 'Regenerate')}
+                ? t('redmine_create_tasks.ai_modal.generate', 'Generate')
+                : t('redmine_create_tasks.ai_modal.regenerate', 'Regenerate')}
             </button>
             <button
               className="rounded-full bg-emerald-600 px-6 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-sm active:scale-95"
               onClick={handleConfirm}
               disabled={tasks.length === 0 || loading || selectedIndices.size === 0}
             >
-              {t('create_tasks.ai_modal.apply', 'Apply')}
+              {t('redmine_create_tasks.ai_modal.apply', 'Apply')}
             </button>
           </div>
         </div>

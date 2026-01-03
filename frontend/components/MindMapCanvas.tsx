@@ -279,7 +279,7 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                     e.stopPropagation();
                     if (window.confirm(
                       t(
-                        'create_tasks.canvas.detach_confirm',
+                        'redmine_create_tasks.canvas.detach_confirm',
                         'Detach connection to "%{title}"?\\n(The node will move under the root.)',
                         { title: target.text }
                       )
@@ -416,7 +416,7 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                     <div className="flex flex-col gap-1.5 p-1 h-full bg-white rounded-lg">
                       <input
                         autoFocus
-                        placeholder={t('create_tasks.canvas.task_name_placeholder', 'Task name')}
+                        placeholder={t('redmine_create_tasks.canvas.task_name_placeholder', 'Task name')}
                         className="w-full text-sm font-bold border-b border-slate-100 outline-none bg-white text-slate-900"
                         style={{ colorScheme: 'light' }}
                         value={node.data.text}
@@ -482,7 +482,7 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                       {!isRoot && (
                         <div className="flex items-center gap-1">
                           <span className="text-xs text-slate-400">
-                            {t('create_tasks.canvas.effort_label', 'Effort:')}
+                            {t('redmine_create_tasks.canvas.effort_label', 'Effort:')}
                           </span>
                           <input
                             type="number"
@@ -533,12 +533,12 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                                 className={`font-bold text-[10px] ${isRoot ? 'fill-white/80' : 'fill-slate-500'}`}
                               >
                                 {isRoot
-                                  ? t('create_tasks.canvas.root_due', 'Due: %{date}', {
-                                    date: node.data.endDate || t('create_tasks.canvas.date_unknown', 'TBD')
+                                  ? t('redmine_create_tasks.canvas.root_due', 'Due: %{date}', {
+                                    date: node.data.endDate || t('redmine_create_tasks.canvas.date_unknown', 'TBD')
                                   })
-                                  : t('create_tasks.canvas.date_range', '%{start} - %{end}', {
-                                    start: node.data.startDate || t('create_tasks.canvas.date_unknown', 'TBD'),
-                                    end: node.data.endDate || t('create_tasks.canvas.date_unknown', 'TBD')
+                                  : t('redmine_create_tasks.canvas.date_range', '%{start} - %{end}', {
+                                    start: node.data.startDate || t('redmine_create_tasks.canvas.date_unknown', 'TBD'),
+                                    end: node.data.endDate || t('redmine_create_tasks.canvas.date_unknown', 'TBD')
                                   })}
                               </text>
                             </g>
@@ -558,7 +558,7 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                           className={isCritical ? "fill-orange-50" : "fill-blue-50"}
                         />
                         <text dy="3.5" textAnchor="middle" className={`font-bold text-[9px] ${isCritical ? 'fill-orange-600' : 'fill-blue-600'}`}>
-                          {node.data.effort || 0} {t('create_tasks.canvas.man_days', 'days')}
+                          {node.data.effort || 0} {t('redmine_create_tasks.canvas.man_days', 'days')}
                         </text>
                       </g>
                     )}

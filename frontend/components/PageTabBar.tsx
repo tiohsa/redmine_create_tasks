@@ -56,10 +56,10 @@ const PageTabBar: React.FC<Props> = ({
     const handleDelete = useCallback((e: React.MouseEvent, index: number) => {
         e.stopPropagation();
         if (pages.length <= 1) {
-            alert(t('create_tasks.pages.cannot_delete_last', 'Cannot delete the last page'));
+            alert(t('redmine_create_tasks.pages.cannot_delete_last', 'Cannot delete the last page'));
             return;
         }
-        if (confirm(t('create_tasks.pages.delete_confirm', 'Delete this page?'))) {
+        if (confirm(t('redmine_create_tasks.pages.delete_confirm', 'Delete this page?'))) {
             onDeletePage(index);
         }
     }, [pages.length, onDeletePage]);
@@ -98,7 +98,7 @@ const PageTabBar: React.FC<Props> = ({
                             onClick={(e) => handleDelete(e, index)}
                             className={`ml-1 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-black/10 ${index === currentPageIndex ? 'text-white/70 hover:text-white' : 'text-slate-400 hover:text-slate-600'
                                 }`}
-                            title={t('create_tasks.pages.delete_page', 'Delete Page')}
+                            title={t('redmine_create_tasks.pages.delete_page', 'Delete Page')}
                         >
                             <X size={12} />
                         </button>
@@ -109,7 +109,7 @@ const PageTabBar: React.FC<Props> = ({
             <button
                 onClick={onAddPage}
                 className="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-all shadow-sm"
-                title={t('create_tasks.pages.add_page', 'Add Page')}
+                title={t('redmine_create_tasks.pages.add_page', 'Add Page')}
             >
                 <Plus size={16} />
             </button>

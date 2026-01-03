@@ -1,6 +1,6 @@
 require 'date'
 
-module CreateTasks
+module RedmineCreateTasks
   class IssueRegistrationService
     attr_reader :project, :user
 
@@ -17,13 +17,13 @@ module CreateTasks
       defaults = normalize_defaults(defaults)
 
       unless @user.allowed_to?(:add_issues, @project)
-        task_list.each { |task| result.add_failure(task[:id], I18n.t('create_tasks.errors.no_permission')) }
+        task_list.each { |task| result.add_failure(task[:id], I18n.t('redmine_create_tasks.errors.no_permission')) }
         return result
       end
 
       tracker, tracker_warning = resolve_tracker(defaults)
       if tracker.nil?
-        task_list.each { |task| result.add_failure(task[:id], I18n.t('create_tasks.errors.tracker_unavailable')) }
+        task_list.each { |task| result.add_failure(task[:id], I18n.t('redmine_create_tasks.errors.tracker_unavailable')) }
         return result
       end
 
@@ -32,7 +32,7 @@ module CreateTasks
       task_list.each do |task|
         subject = task[:subject].to_s.strip
         if subject.empty?
-          result.add_failure(task[:id], I18n.t('create_tasks.errors.subject_missing'))
+          result.add_failure(task[:id], I18n.t('redmine_create_tasks.errors.subject_missing'))
           next
         end
 
@@ -54,7 +54,7 @@ module CreateTasks
         apply_dates(issue, task, result)
         apply_estimated_hours(issue, task, result)
         if tracker_warning
-          result.add_warning(task[:id], I18n.t('create_tasks.warnings.tracker_default'))
+          result.add_warning(task[:id], I18n.t('redmine_create_tasks.warnings.tracker_default'))
         end
 
         if issue.save
@@ -99,7 +99,7 @@ module CreateTasks
         return [tracker, false] if tracker
       end
 
-      setting_id = (Setting[:plugin_create_tasks] || {})['issue_tracker_id'].to_s
+      setting_id = (Setting[:plugin_redmine_create_tasks] || {})['issue_tracker_id'].to_s
       return [Tracker.find_by(id: setting_id), false] if setting_id.present?
 
       default_tracker = @project.trackers.first
@@ -143,20 +143,20 @@ module CreateTasks
       if start_date
         issue.start_date = start_date
       else
-        result.add_warning(task[:id], I18n.t('create_tasks.warnings.start_date_missing'))
+        result.add_warning(task[:id], I18n.t('redmine_create_tasks.warnings.start_date_missing'))
       end
 
       if due_date
         issue.due_date = due_date
       else
-        result.add_warning(task[:id], I18n.t('create_tasks.warnings.due_date_missing'))
+        result.add_warning(task[:id], I18n.t('redmine_create_tasks.warnings.due_date_missing'))
       end
     end
 
     def apply_estimated_hours(issue, task, result)
       man_days = parse_number(task[:man_days])
       if man_days.nil? || man_days <= 0
-        result.add_warning(task[:id], I18n.t('create_tasks.warnings.man_days_missing'))
+        result.add_warning(task[:id], I18n.t('redmine_create_tasks.warnings.man_days_missing'))
         return
       end
 
@@ -171,7 +171,7 @@ module CreateTasks
         Array(task[:dependencies]).each do |dep_id|
           dep_issue = issues_by_task[dep_id]
           if dep_issue.nil?
-            result.add_warning(task[:id], I18n.t('create_tasks.warnings.dependency_missing', dependency: dep_id))
+            result.add_warning(task[:id], I18n.t('redmine_create_tasks.warnings.dependency_missing', dependency: dep_id))
             next
           end
 
@@ -190,7 +190,7 @@ module CreateTasks
           unless relation.save
             result.add_warning(
               task[:id],
-              I18n.t('create_tasks.warnings.dependency_create_failed', reason: relation.errors.full_messages.join(', '))
+              I18n.t('redmine_create_tasks.warnings.dependency_create_failed', reason: relation.errors.full_messages.join(', '))
             )
           end
         end

@@ -7,7 +7,7 @@ import { t } from './i18n';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
-  throw new Error(t('create_tasks.app.root_missing', 'Root element was not found.'));
+  throw new Error(t('redmine_create_tasks.app.root_missing', 'Root element was not found.'));
 }
 
 const root = ReactDOM.createRoot(rootElement);

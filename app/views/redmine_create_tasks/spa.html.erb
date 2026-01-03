@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <%= csrf_meta_tags %>
+  <% translations = {
+    'redmine_create_tasks.common.none' => I18n.t('redmine_create_tasks.common.none'),
+    'redmine_create_tasks.common.close' => I18n.t('redmine_create_tasks.common.close'),
+    'redmine_create_tasks.common.cancel' => I18n.t('redmine_create_tasks.common.cancel'),
+    'redmine_create_tasks.common.save' => I18n.t('redmine_create_tasks.common.save'),
+    'redmine_create_tasks.common.loading' => I18n.t('redmine_create_tasks.common.loading'),
+    'redmine_create_tasks.app.default_title' => I18n.t('redmine_create_tasks.app.default_title'),
+    'redmine_create_tasks.app.default_prompt' => I18n.t('redmine_create_tasks.app.default_prompt'),
+    'redmine_create_tasks.app.root_title' => I18n.t('redmine_create_tasks.app.root_title'),
+    'redmine_create_tasks.app.root_missing' => I18n.t('redmine_create_tasks.app.root_missing'),
+    'redmine_create_tasks.app.new_task' => I18n.t('redmine_create_tasks.app.new_task'),
+    'redmine_create_tasks.app.ai_extract_failed' => I18n.t('redmine_create_tasks.app.ai_extract_failed'),
+    'redmine_create_tasks.app.ai_settings_load_failed' => I18n.t('redmine_create_tasks.app.ai_settings_load_failed'),
+    'redmine_create_tasks.app.ai_settings_save_failed' => I18n.t('redmine_create_tasks.app.ai_settings_save_failed'),
+    'redmine_create_tasks.app.ai_defaults_load_failed' => I18n.t('redmine_create_tasks.app.ai_defaults_load_failed'),
+    'redmine_create_tasks.app.register_no_tasks' => I18n.t('redmine_create_tasks.app.register_no_tasks'),
+    'redmine_create_tasks.app.register_failed' => I18n.t('redmine_create_tasks.app.register_failed'),
+    'redmine_create_tasks.app.move_invalid' => I18n.t('redmine_create_tasks.app.move_invalid'),
+    'redmine_create_tasks.app.cpm_not_found' => I18n.t('redmine_create_tasks.app.cpm_not_found'),
+    'redmine_create_tasks.app.register_title' => I18n.t('redmine_create_tasks.app.register_title'),
+    'redmine_create_tasks.app.register_button' => I18n.t('redmine_create_tasks.app.register_button'),
+    'redmine_create_tasks.app.registering' => I18n.t('redmine_create_tasks.app.registering'),
+    'redmine_create_tasks.app.critical_path' => I18n.t('redmine_create_tasks.app.critical_path'),
+    'redmine_create_tasks.app.schedule_calc' => I18n.t('redmine_create_tasks.app.schedule_calc'),
+    'redmine_create_tasks.app.focus_root' => I18n.t('redmine_create_tasks.app.focus_root'),
+    'redmine_create_tasks.app.focus_leaves' => I18n.t('redmine_create_tasks.app.focus_leaves'),
+    'redmine_create_tasks.app.undo' => I18n.t('redmine_create_tasks.app.undo'),
+    'redmine_create_tasks.app.export' => I18n.t('redmine_create_tasks.app.export'),
+    'redmine_create_tasks.app.register_settings' => I18n.t('redmine_create_tasks.app.register_settings'),
+    'redmine_create_tasks.app.delete' => I18n.t('redmine_create_tasks.app.delete'),
+    'redmine_create_tasks.app.add_prereq' => I18n.t('redmine_create_tasks.app.add_prereq'),
+    'redmine_create_tasks.app.ai_extract' => I18n.t('redmine_create_tasks.app.ai_extract'),
+    'redmine_create_tasks.app.ai_extracting' => I18n.t('redmine_create_tasks.app.ai_extracting'),
+    'redmine_create_tasks.app.success_count' => I18n.t('redmine_create_tasks.app.success_count'),
+    'redmine_create_tasks.app.sample_ids' => I18n.t('redmine_create_tasks.app.sample_ids'),
+    'redmine_create_tasks.app.failures' => I18n.t('redmine_create_tasks.app.failures'),
+    'redmine_create_tasks.app.warnings' => I18n.t('redmine_create_tasks.app.warnings'),
+    'redmine_create_tasks.app.guide_title' => I18n.t('redmine_create_tasks.app.guide_title'),
+    'redmine_create_tasks.app.guide_add_prereq' => I18n.t('redmine_create_tasks.app.guide_add_prereq'),
+    'redmine_create_tasks.app.guide_ai_extract' => I18n.t('redmine_create_tasks.app.guide_ai_extract'),
+    'redmine_create_tasks.app.guide_flow_order' => I18n.t('redmine_create_tasks.app.guide_flow_order'),
+    'redmine_create_tasks.app.guide_cpm' => I18n.t('redmine_create_tasks.app.guide_cpm'),
+    'redmine_create_tasks.ai_modal.title' => I18n.t('redmine_create_tasks.ai_modal.title'),
+    'redmine_create_tasks.ai_modal.close' => I18n.t('redmine_create_tasks.ai_modal.close'),
+    'redmine_create_tasks.ai_modal.provider' => I18n.t('redmine_create_tasks.ai_modal.provider'),
+    'redmine_create_tasks.ai_modal.reset_prompt' => I18n.t('redmine_create_tasks.ai_modal.reset_prompt'),
+    'redmine_create_tasks.ai_modal.reset_prompt_title' => I18n.t('redmine_create_tasks.ai_modal.reset_prompt_title'),
+    'redmine_create_tasks.ai_modal.prompt_label' => I18n.t('redmine_create_tasks.ai_modal.prompt_label'),
+    'redmine_create_tasks.ai_modal.loading' => I18n.t('redmine_create_tasks.ai_modal.loading'),
+    'redmine_create_tasks.ai_modal.results' => I18n.t('redmine_create_tasks.ai_modal.results'),
+    'redmine_create_tasks.ai_modal.selected_count' => I18n.t('redmine_create_tasks.ai_modal.selected_count'),
+    'redmine_create_tasks.ai_modal.empty' => I18n.t('redmine_create_tasks.ai_modal.empty'),
+    'redmine_create_tasks.ai_modal.save_settings' => I18n.t('redmine_create_tasks.ai_modal.save_settings'),
+    'redmine_create_tasks.ai_modal.save_title' => I18n.t('redmine_create_tasks.ai_modal.save_title'),
+    'redmine_create_tasks.ai_modal.cancel' => I18n.t('redmine_create_tasks.ai_modal.cancel'),
+    'redmine_create_tasks.ai_modal.generate' => I18n.t('redmine_create_tasks.ai_modal.generate'),
+    'redmine_create_tasks.ai_modal.regenerate' => I18n.t('redmine_create_tasks.ai_modal.regenerate'),
+    'redmine_create_tasks.ai_modal.apply' => I18n.t('redmine_create_tasks.ai_modal.apply'),
+    'redmine_create_tasks.registration.title' => I18n.t('redmine_create_tasks.registration.title'),
+    'redmine_create_tasks.registration.loading_failed' => I18n.t('redmine_create_tasks.registration.loading_failed'),
+    'redmine_create_tasks.registration.description_line1' => I18n.t('redmine_create_tasks.registration.description_line1'),
+    'redmine_create_tasks.registration.description_line2' => I18n.t('redmine_create_tasks.registration.description_line2'),
+    'redmine_create_tasks.registration.tracker' => I18n.t('redmine_create_tasks.registration.tracker'),
+    'redmine_create_tasks.registration.tracker_default' => I18n.t('redmine_create_tasks.registration.tracker_default'),
+    'redmine_create_tasks.registration.assignee' => I18n.t('redmine_create_tasks.registration.assignee'),
+    'redmine_create_tasks.registration.assignee_self' => I18n.t('redmine_create_tasks.registration.assignee_self'),
+    'redmine_create_tasks.registration.priority' => I18n.t('redmine_create_tasks.registration.priority'),
+    'redmine_create_tasks.registration.priority_default' => I18n.t('redmine_create_tasks.registration.priority_default'),
+    'redmine_create_tasks.registration.status' => I18n.t('redmine_create_tasks.registration.status'),
+    'redmine_create_tasks.registration.status_default' => I18n.t('redmine_create_tasks.registration.status_default'),
+    'redmine_create_tasks.registration.category' => I18n.t('redmine_create_tasks.registration.category'),
+    'redmine_create_tasks.registration.category_none' => I18n.t('redmine_create_tasks.registration.category_none'),
+    'redmine_create_tasks.registration.close' => I18n.t('redmine_create_tasks.registration.close'),
+    'redmine_create_tasks.registration.cancel' => I18n.t('redmine_create_tasks.registration.cancel'),
+    'redmine_create_tasks.registration.save' => I18n.t('redmine_create_tasks.registration.save'),
+    'redmine_create_tasks.canvas.task_name_placeholder' => I18n.t('redmine_create_tasks.canvas.task_name_placeholder'),
+    'redmine_create_tasks.canvas.effort_label' => I18n.t('redmine_create_tasks.canvas.effort_label'),
+    'redmine_create_tasks.canvas.man_days' => I18n.t('redmine_create_tasks.canvas.man_days'),
+    'redmine_create_tasks.canvas.date_unknown' => I18n.t('redmine_create_tasks.canvas.date_unknown'),
+    'redmine_create_tasks.canvas.date_range' => I18n.t('redmine_create_tasks.canvas.date_range'),
+    'redmine_create_tasks.canvas.root_due' => I18n.t('redmine_create_tasks.canvas.root_due'),
+    'redmine_create_tasks.canvas.detach_confirm' => I18n.t('redmine_create_tasks.canvas.detach_confirm'),
+    'redmine_create_tasks.header.edit_title' => I18n.t('redmine_create_tasks.header.edit_title'),
+    'redmine_create_tasks.header.subtitle' => I18n.t('redmine_create_tasks.header.subtitle'),
+    'redmine_create_tasks.errors.master_data_failed' => I18n.t('redmine_create_tasks.errors.master_data_failed')
+  } %>
+  <% fallback_translations = translations.keys.to_h { |key| [key, I18n.t(key, locale: I18n.default_locale)] } %>
+  <script>
+    window.createTasksI18n = <%= raw translations.to_json %>;
+    window.createTasksI18nFallback = <%= raw fallback_translations.to_json %>;
+  </script>
+  <title><%= l(:label_redmine_create_tasks) %></title>
+  <%= stylesheet_link_tag 'spa', plugin: 'redmine_create_tasks' %>
+  <style>
+    body {
+      margin: 0;
+      background: transparent;
+    }
+    .mindmap-node {
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .mindmap-link {
+      stroke: #cbd5e1;
+      stroke-width: 1.5px;
+      fill: none;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+    .mindmap-link:hover {
+      stroke: #f43f5e;
+      stroke-width: 3px;
+      opacity: 1 !important;
+    }
+    .custom-connector {
+      stroke: #94a3b8;
+      stroke-width: 2px;
+      fill: none;
+      opacity: 0.5;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .custom-connector:hover {
+      opacity: 1;
+      stroke: #f43f5e;
+      stroke-width: 3px;
+    }
+    @keyframes rapid-shake {
+      0% { transform: translateX(0); }
+      25% { transform: translateX(-3px); }
+      50% { transform: translateX(3px); }
+      75% { transform: translateX(-3px); }
+      100% { transform: translateX(0); }
+    }
+    .shake-on-hover:hover {
+      animation: rapid-shake 0.1s infinite;
+    }
+  </style>
+</head>
+<body>
+  <div id="root" class="create-tasks-root"></div>
+  <%= javascript_include_tag 'spa', plugin: 'redmine_create_tasks', type: 'module' %>
+</body>
+</html>

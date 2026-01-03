@@ -1,4 +1,4 @@
-module CreateTasks
+module RedmineCreateTasks
   class IssueRegistrationResult
     attr_reader :success_count, :success_sample_ids, :failures, :warnings
 

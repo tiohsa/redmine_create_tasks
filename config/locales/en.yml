@@ -1,15 +1,15 @@
 en:
-  label_create_tasks: Create Tasks
-  label_create_tasks_register: Register Issues
-  label_create_tasks_register_result: Registration Result
-  label_create_tasks_register_success_count: Success Count
-  label_create_tasks_register_success_sample_ids: Sample Issue IDs
-  label_create_tasks_register_failures: Failures
-  label_create_tasks_register_warnings: Warnings
-  label_create_tasks_register_reason: Reason
-  label_create_tasks_register_task_id: Task ID
-  label_create_tasks_default_tracker: Default Tracker
-  create_tasks:
+  label_redmine_create_tasks: Create Tasks
+  label_redmine_create_tasks_register: Register Issues
+  label_redmine_create_tasks_register_result: Registration Result
+  label_redmine_create_tasks_register_success_count: Success Count
+  label_redmine_create_tasks_register_success_sample_ids: Sample Issue IDs
+  label_redmine_create_tasks_register_failures: Failures
+  label_redmine_create_tasks_register_warnings: Warnings
+  label_redmine_create_tasks_register_reason: Reason
+  label_redmine_create_tasks_register_task_id: Task ID
+  label_redmine_create_tasks_default_tracker: Default Tracker
+  redmine_create_tasks:
     common:
       none: None
       close: Close

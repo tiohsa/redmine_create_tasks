@@ -1,17 +1,17 @@
 require_relative '../test_helper'
 require 'fileutils'
 
-class CreateTasksControllerTest < ActionController::TestCase
-  include CreateTasksTestHelper
+class RedmineCreateTasksControllerTest < ActionController::TestCase
+  include RedmineCreateTasksTestHelper
 
   fixtures :projects, :users, :members, :roles, :member_roles, :enabled_modules
 
   def setup
     @project = Project.find(1)
-    @asset_dir = Rails.root.join('plugins', 'create_tasks', 'frontend', 'dist', 'assets')
+    @asset_dir = Rails.root.join('plugins', 'redmine_create_tasks', 'frontend', 'dist', 'assets')
     FileUtils.mkdir_p(@asset_dir)
     @test_asset = @asset_dir.join('test-asset.js')
-    File.write(@test_asset, 'console.log("create_tasks");')
+    File.write(@test_asset, 'console.log("redmine_create_tasks");')
   end
 
   def teardown
@@ -19,24 +19,24 @@ class CreateTasksControllerTest < ActionController::TestCase
   end
 
   def test_index_renders_iframe
-    create_tasks_login_as(User.find(1))
+    redmine_create_tasks_login_as(User.find(1))
     get :index, params: project_params
     assert_response :success
     assert_select 'iframe.create-tasks-frame'
   end
 
   def test_spa_renders_root
-    create_tasks_login_as(User.find(1))
+    redmine_create_tasks_login_as(User.find(1))
     get :spa, params: project_params
     assert_response :success
     assert_includes @response.body, 'id="root"'
   end
 
   def test_assets_serves_static_file
-    create_tasks_login_as(User.find(1))
+    redmine_create_tasks_login_as(User.find(1))
     get :assets, params: project_params.merge(asset: 'test-asset.js')
     assert_response :success
-    assert_includes @response.body, 'create_tasks'
+    assert_includes @response.body, 'redmine_create_tasks'
   end
 
   def test_requires_login_redirects_to_signin
@@ -45,7 +45,7 @@ class CreateTasksControllerTest < ActionController::TestCase
   end
 
   def test_assets_returns_not_found_for_missing_file
-    create_tasks_login_as(User.find(1))
+    redmine_create_tasks_login_as(User.find(1))
     get :assets, params: project_params.merge(asset: 'missing.js')
     assert_response :not_found
   end

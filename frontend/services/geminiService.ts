@@ -13,7 +13,7 @@ export const expandNodeWithAI = async (
   topic: string,
   promptOverride?: string
 ): Promise<string[]> => {
-  const response = await fetch(`/projects/${getProjectId()}/create_tasks/ai/extract`, {
+  const response = await fetch(`/projects/${getProjectId()}/redmine_create_tasks/ai/extract`, {
     method: 'POST',
     headers: getApiHeaders(),
     body: JSON.stringify({ topic, provider: 'gemini', prompt: promptOverride })

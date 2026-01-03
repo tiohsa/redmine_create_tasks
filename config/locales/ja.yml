@@ -1,15 +1,15 @@
 ja:
-  label_create_tasks: タスク作成
-  label_create_tasks_register: チケット登録
-  label_create_tasks_register_result: 登録結果
-  label_create_tasks_register_success_count: 成功件数
-  label_create_tasks_register_success_sample_ids: 代表チケットID
-  label_create_tasks_register_failures: 失敗
-  label_create_tasks_register_warnings: 警告
-  label_create_tasks_register_reason: 理由
-  label_create_tasks_register_task_id: タスクID
-  label_create_tasks_default_tracker: デフォルトトラッカー
-  create_tasks:
+  label_redmine_create_tasks: タスク作成
+  label_redmine_create_tasks_register: チケット登録
+  label_redmine_create_tasks_register_result: 登録結果
+  label_redmine_create_tasks_register_success_count: 成功件数
+  label_redmine_create_tasks_register_success_sample_ids: 代表チケットID
+  label_redmine_create_tasks_register_failures: 失敗
+  label_redmine_create_tasks_register_warnings: 警告
+  label_redmine_create_tasks_register_reason: 理由
+  label_redmine_create_tasks_register_task_id: タスクID
+  label_redmine_create_tasks_default_tracker: デフォルトトラッカー
+  redmine_create_tasks:
     common:
       none: なし
       close: 閉じる
