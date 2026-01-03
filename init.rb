@@ -2,12 +2,12 @@ require_relative 'lib/create_tasks/issue_registration_result'
 require_relative 'lib/create_tasks/issue_registration_service'
 
 Redmine::Plugin.register :create_tasks do
-  name 'Create Tasks'
-  author 'Author name'
+  name 'Redmine Create Tasks'
+  author 'tiohsa'
   description 'Create Tasks plugin for Redmine'
   version '0.0.1'
-  url 'http://example.com/path/to/plugin'
-  author_url 'http://example.com/about'
+  url 'https://github.com/tiohsa/redmine_create_tasks'
+  author_url 'https://github.com/tiohsa'
 
   project_module :create_tasks do
     permission :view_create_tasks, {
