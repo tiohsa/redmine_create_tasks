@@ -9,6 +9,7 @@ export interface RegistrationSettings {
     status_id?: string;
     priority_id?: string;
     category_id?: string;
+    create_root_issue?: boolean;
 }
 
 interface RegistrationSettingsDialogProps {
@@ -36,7 +37,7 @@ const RegistrationSettingsDialog: React.FC<RegistrationSettingsDialogProps> = ({
 
     if (!open) return null;
 
-    const handleChange = (key: keyof RegistrationSettings, value: string) => {
+    const handleChange = (key: keyof RegistrationSettings, value: any) => {
         setSettings((prev) => ({
             ...prev,
             [key]: value === '' ? undefined : value,
@@ -87,6 +88,19 @@ const RegistrationSettingsDialog: React.FC<RegistrationSettingsDialogProps> = ({
                             <br />
                             {t('redmine_create_tasks.registration.description_line2', 'These values are used when not specified.')}
                         </p>
+
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                id="create_root_issue"
+                                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                checked={settings.create_root_issue || false}
+                                onChange={(e) => handleChange('create_root_issue', e.target.checked)}
+                            />
+                            <label htmlFor="create_root_issue" className="text-sm font-semibold text-slate-700">
+                                {t('redmine_create_tasks.registration.create_root_issue', 'Register final deliverable as parent ticket')}
+                            </label>
+                        </div>
 
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-1">

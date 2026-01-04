@@ -85,6 +85,7 @@ en:
       status_default: "(Default: New)"
       category: Category
       category_none: (None)
+      create_root_issue: Register final deliverable as a parent ticket
       close: Close
       cancel: Cancel
       save: Save
@@ -115,6 +116,7 @@ en:
       man_days_missing: Man-days is missing; estimated hours left blank.
       dependency_missing: "Dependency task not found; could not create relation: %{dependency}"
       dependency_create_failed: "Failed to create dependency: %{reason}"
+      hierarchy_failed: "Failed to create parent-child relationship: %{reason}"
     forbidden:
       title: Access denied
       message: This page is available to administrators only.

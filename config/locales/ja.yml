@@ -85,6 +85,7 @@ ja:
       status_default: "（デフォルト: 新規）"
       category: カテゴリ
       category_none: （なし）
+      create_root_issue: 最終成果物を親チケットとして登録する
       close: 閉じる
       cancel: キャンセル
       save: 保存する
@@ -115,6 +116,7 @@ ja:
       man_days_missing: 人日が未設定のため予定工数は空欄です
       dependency_missing: "依存タスクが見つからないため依存関係を作成できません: %{dependency}"
       dependency_create_failed: "依存関係の作成に失敗しました: %{reason}"
+      hierarchy_failed: "親子関係の作成に失敗しました: %{reason}"
     forbidden:
       title: アクセス権限がありません
       message: この画面は管理者のみ利用できます。

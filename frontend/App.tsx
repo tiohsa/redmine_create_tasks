@@ -503,7 +503,20 @@ const App: React.FC = () => {
   }, [handleLoadSettings]);
 
   const handleRegisterIssues = useCallback(async () => {
-    const nodes = flattenNodes(data).filter(node => node.id !== 'root');
+    // Parent map construction
+    const parentMap = new Map<string, string>();
+    const buildParentMap = (node: MindMapNode) => {
+      node.children.forEach(child => {
+        parentMap.set(child.id, node.id);
+        buildParentMap(child);
+      });
+    };
+    buildParentMap(data);
+
+    const nodes = flattenNodes(data).filter(node =>
+      registrationSettings.create_root_issue ? true : node.id !== 'root'
+    );
+
     if (nodes.length === 0) {
       setRegisterError(t('redmine_create_tasks.app.register_no_tasks', 'No tasks to register.'));
       setRegisterResult(null);
@@ -525,7 +538,8 @@ const App: React.FC = () => {
             start_date: node.startDate,
             due_date: node.endDate,
             man_days: node.effort,
-            dependencies: deps.length > 0 ? deps : undefined
+            dependencies: deps.length > 0 ? deps : undefined,
+            parent_task_id: registrationSettings.create_root_issue && node.id !== 'root' ? 'root' : undefined
           };
         }),
         defaults: registrationSettings

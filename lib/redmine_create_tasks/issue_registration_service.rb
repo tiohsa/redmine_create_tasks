@@ -66,6 +66,7 @@ module RedmineCreateTasks
       end
 
       apply_dependencies(task_list, issues_by_task, result)
+      apply_hierarchy(task_list, issues_by_task, result)
       result
     end
 
@@ -88,7 +89,8 @@ module RedmineCreateTasks
           start_date: data['start_date'] || data[:start_date],
           due_date: data['due_date'] || data[:due_date],
           man_days: data['man_days'] || data[:man_days],
-          dependencies: Array(data['dependencies'] || data[:dependencies]).map(&:to_s)
+          dependencies: Array(data['dependencies'] || data[:dependencies]).map(&:to_s),
+          parent_task_id: (data['parent_task_id'] || data[:parent_task_id])&.to_s
         }
       end
     end
@@ -193,6 +195,30 @@ module RedmineCreateTasks
               I18n.t('redmine_create_tasks.warnings.dependency_create_failed', reason: relation.errors.full_messages.join(', '))
             )
           end
+        end
+      end
+    end
+
+    def apply_hierarchy(task_list, issues_by_task, result)
+      task_list.each do |task|
+        next unless task[:parent_task_id].present?
+
+        issue = issues_by_task[task[:id]]
+        parent_issue = issues_by_task[task[:parent_task_id]]
+
+        next if issue.nil?
+
+        # If parent_issue is nil (e.g. parent was not in the list), we ignore it.
+        next if parent_issue.nil?
+
+        issue.reload
+        parent_issue.reload
+        issue.parent_id = parent_issue.id
+        unless issue.save
+          result.add_warning(
+            task[:id],
+            I18n.t('redmine_create_tasks.warnings.hierarchy_failed', reason: issue.errors.full_messages.join(', '))
+          )
         end
       end
     end
