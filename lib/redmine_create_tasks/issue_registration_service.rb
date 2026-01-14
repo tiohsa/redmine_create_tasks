@@ -209,6 +209,11 @@ module RedmineCreateTasks
         next if issue.nil?
 
         # If parent_issue is nil (e.g. parent was not in the list), we ignore it.
+        # But now we check if it is an existing external issue.
+        if parent_issue.nil?
+          parent_issue = find_external_parent(task[:parent_task_id], result, task[:id])
+        end
+        
         next if parent_issue.nil?
 
         issue.reload
@@ -235,6 +240,29 @@ module RedmineCreateTasks
       Float(value)
     rescue ArgumentError, TypeError
       nil
+    end
+
+    def find_external_parent(parent_id, result, task_id)
+      return nil unless parent_id.to_s.match?(/\A\d+\z/)
+
+      issue = Issue.find_by(id: parent_id)
+      if issue.nil?
+        result.add_warning(
+          task_id,
+          I18n.t('redmine_create_tasks.warnings.parent_not_found', id: parent_id)
+        )
+        return nil
+      end
+
+      if issue.closed?
+        result.add_warning(
+          task_id,
+          I18n.t('redmine_create_tasks.warnings.parent_closed', id: parent_id)
+        )
+        return nil
+      end
+
+      issue
     end
   end
 end

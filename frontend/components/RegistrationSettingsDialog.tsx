@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Save, X } from 'lucide-react';
+import { Settings, Save, X, Loader2 } from 'lucide-react';
 import { MasterData } from '../services/masterDataService';
+import { fetchIssue } from '../services/taskRegistrationService';
 import { t } from '../i18n';
 
 export interface RegistrationSettings {
@@ -10,6 +11,7 @@ export interface RegistrationSettings {
     priority_id?: string;
     category_id?: string;
     create_root_issue?: boolean;
+    existing_root_issue_id?: string;
 }
 
 interface RegistrationSettingsDialogProps {
@@ -28,6 +30,39 @@ const RegistrationSettingsDialog: React.FC<RegistrationSettingsDialogProps> = ({
     onSave,
 }) => {
     const [settings, setSettings] = useState<RegistrationSettings>(currentSettings);
+    const [loadStatus, setLoadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+    const [loadedIssue, setLoadedIssue] = useState<{ subject: string, isClosed: boolean } | null>(null);
+
+    const handleLoadIssue = async (id: string) => {
+        setLoadStatus('loading');
+        setLoadedIssue(null);
+        try {
+            const issue = await fetchIssue(id);
+            setLoadedIssue({
+                subject: issue.subject,
+                isClosed: masterData?.issue_statuses.find(s => s.id === issue.status_id)?.is_closed || false
+            });
+            setLoadStatus('success');
+        } catch (e) {
+            setLoadStatus('error');
+        }
+    };
+
+
+    // Reset loop status when dialog opens or settings change (if needed)
+    useEffect(() => {
+        if (open) {
+            setLoadStatus('idle');
+            setLoadedIssue(null);
+        }
+    }, [open]);
+
+    // Check if we need to load existing issue info if ID is already present
+    useEffect(() => {
+        if (open && settings.existing_root_issue_id && settings.existing_root_issue_id.match(/^\d+$/) && loadStatus === 'idle') {
+            handleLoadIssue(settings.existing_root_issue_id);
+        }
+    }, [open, settings.existing_root_issue_id]); // Be careful not to loop
 
     useEffect(() => {
         if (open) {
@@ -89,17 +124,100 @@ const RegistrationSettingsDialog: React.FC<RegistrationSettingsDialogProps> = ({
                             {t('redmine_create_tasks.registration.description_line2', 'These values are used when not specified.')}
                         </p>
 
-                        <div className="flex items-center gap-2">
-                            <input
-                                type="checkbox"
-                                id="create_root_issue"
-                                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                checked={settings.create_root_issue || false}
-                                onChange={(e) => handleChange('create_root_issue', e.target.checked)}
-                            />
-                            <label htmlFor="create_root_issue" className="text-sm font-semibold text-slate-700">
-                                {t('redmine_create_tasks.registration.create_root_issue', 'Register final deliverable as parent ticket')}
+                        <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+                            <label className="block text-sm font-bold text-slate-700 mb-2">
+                                {t('redmine_create_tasks.registration.root_handling', 'Final Deliverable (Root Task)')}
                             </label>
+
+                            <div className="flex flex-col gap-3">
+                                <label className="flex items-start gap-3 cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="root_handling"
+                                        className="mt-1 h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                        checked={settings.create_root_issue !== false}
+                                        onChange={() => handleChange('create_root_issue', true)}
+                                    />
+                                    <div>
+                                        <div className="text-sm font-medium text-slate-700">
+                                            {t('redmine_create_tasks.registration.create_new', 'Register as a new ticket')}
+                                        </div>
+                                        <div className="text-xs text-slate-500">
+                                            {t('redmine_create_tasks.registration.create_new_desc', 'Creates a new ticket for the root node.')}
+                                        </div>
+                                    </div>
+                                </label>
+
+                                <div className="flex items-start gap-3">
+                                    <input
+                                        type="radio"
+                                        name="root_handling"
+                                        className="mt-1 h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                        checked={settings.create_root_issue === false}
+                                        onChange={() => handleChange('create_root_issue', false)}
+                                    />
+                                    <div className="flex-1">
+                                        <label
+                                            className="text-sm font-medium text-slate-700 cursor-pointer block mb-2"
+                                            onClick={() => handleChange('create_root_issue', false)}
+                                        >
+                                            {t('redmine_create_tasks.registration.use_existing', 'Link to existing ticket')}
+                                        </label>
+
+                                        {settings.create_root_issue === false && (
+                                            <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        placeholder={t('redmine_create_tasks.registration.issue_id_placeholder', 'Issue ID')}
+                                                        className="flex-1 min-w-0 rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-500 outline-none placeholder:text-slate-400"
+                                                        value={settings.existing_root_issue_id || ''}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value.replace(/[^0-9]/g, '');
+                                                            handleChange('existing_root_issue_id', val);
+                                                        }}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => settings.existing_root_issue_id && handleLoadIssue(settings.existing_root_issue_id)}
+                                                        disabled={!settings.existing_root_issue_id || loadStatus === 'loading'}
+                                                        className="flex items-center justify-center rounded-lg bg-indigo-50 px-4 py-2 text-sm font-bold text-indigo-600 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-w-[4rem]"
+                                                    >
+                                                        {loadStatus === 'loading' ? <Loader2 className="animate-spin h-4 w-4" /> : t('redmine_create_tasks.registration.load', 'Load')}
+                                                    </button>
+                                                </div>
+
+                                                {loadStatus === 'error' && (
+                                                    <div className="text-xs text-red-600 flex items-center gap-1 font-medium bg-red-50 p-2 rounded-lg">
+                                                        <X size={12} />
+                                                        {t('redmine_create_tasks.registration.load_error', 'Details not found.')}
+                                                    </div>
+                                                )}
+
+                                                {loadedIssue && (
+                                                    <div className={`text-xs p-3 rounded-lg border flex flex-col gap-1 ${loadedIssue.isClosed ? 'bg-red-50 border-red-100 text-red-800' : 'bg-green-50 border-green-100 text-green-800'}`}>
+                                                        <div className="font-bold flex items-center gap-2">
+                                                            {loadedIssue.isClosed
+                                                                ? <span className="flex h-2 w-2 rounded-full bg-red-500" />
+                                                                : <span className="flex h-2 w-2 rounded-full bg-green-500" />
+                                                            }
+                                                            #{settings.existing_root_issue_id}
+                                                        </div>
+                                                        <div className="font-medium line-clamp-2 leading-relaxed opacity-90">
+                                                            {loadedIssue.subject}
+                                                        </div>
+                                                        {loadedIssue.isClosed && (
+                                                            <div className="mt-1 font-bold text-red-600 bg-white/50 px-2 py-1 rounded inline-self-start">
+                                                                {t('redmine_create_tasks.registration.cannot_use_closed', 'Closed Ticket')}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <div>

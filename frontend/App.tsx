@@ -8,7 +8,7 @@ import { expandNodeWithAzureOpenAi } from './services/azureOpenAiService';
 import { calculateCriticalPath } from './utils/cpm';
 import AiTaskExtractModal from './components/AiTaskExtractModal';
 import { fetchAiSettings, updateAiSettings, fetchAiDefaults } from './services/aiSettingsService';
-import { registerTasks } from './services/taskRegistrationService';
+import { registerTasks, fetchIssue } from './services/taskRegistrationService';
 import { fetchMasterData, MasterData } from './services/masterDataService';
 import RegistrationSettingsDialog, { RegistrationSettings } from './components/RegistrationSettingsDialog';
 import { t } from './i18n';
@@ -192,10 +192,7 @@ const App: React.FC = () => {
     loadMasterData();
   }, []);
 
-  const handleSaveRegistrationSettings = useCallback((settings: RegistrationSettings) => {
-    setRegistrationSettings(settings);
-    localStorage.setItem(`redmine_create_tasks_settings_${getProjectId()}`, JSON.stringify(settings));
-  }, []);
+
 
   useEffect(() => {
     const saveData = {
@@ -400,6 +397,23 @@ const App: React.FC = () => {
     setCriticalNodeIds(new Set());
   }, []);
 
+  const handleSaveRegistrationSettings = useCallback(async (settings: RegistrationSettings) => {
+    setRegistrationSettings(settings);
+    localStorage.setItem(`redmine_create_tasks_settings_${getProjectId()}`, JSON.stringify(settings));
+
+    // If using existing issue, update root node text
+    if (settings.create_root_issue === false && settings.existing_root_issue_id) {
+      try {
+        const issue = await fetchIssue(settings.existing_root_issue_id);
+        if (issue) {
+          handleUpdateNodeData('root', { text: issue.subject });
+        }
+      } catch (e) {
+        console.error('Failed to fetch issue for root node update', e);
+      }
+    }
+  }, [handleUpdateNodeData]);
+
   const handleAIExpand = useCallback(async (id: string) => {
     const targetNode = findNodeById(data, id);
     if (!targetNode) return;
@@ -529,22 +543,33 @@ const App: React.FC = () => {
 
     try {
       const depMap = buildDependencyMap(data, connections);
-      const payload = {
-        tasks: nodes.map(node => {
-          const deps = Array.from(depMap.get(node.id) || []);
-          return {
-            id: node.id,
-            subject: node.text,
-            start_date: node.startDate,
-            due_date: node.endDate,
-            man_days: node.effort,
-            dependencies: deps.length > 0 ? deps : undefined,
-            parent_task_id: registrationSettings.create_root_issue && node.id !== 'root' ? 'root' : undefined
-          };
-        }),
-        defaults: registrationSettings
-      };
-      const result = await registerTasks(getProjectId(), payload);
+      const tasksPayload = nodes.map(node => {
+        const deps = Array.from(depMap.get(node.id) || []);
+        let parentId = parentMap.get(node.id);
+
+        if (parentId === 'root') {
+          if (registrationSettings.create_root_issue) {
+            parentId = 'root';
+          } else if (registrationSettings.existing_root_issue_id) {
+            parentId = registrationSettings.existing_root_issue_id;
+          } else {
+            parentId = undefined;
+          }
+        }
+
+        return {
+          id: node.id,
+          subject: node.text,
+          start_date: node.startDate,
+          due_date: node.endDate,
+          man_days: node.effort,
+          dependencies: deps.length > 0 ? deps : undefined,
+          parent_task_id: parentId
+        };
+      });
+
+      const finalPayload = { tasks: tasksPayload, defaults: registrationSettings };
+      const result = await registerTasks(getProjectId(), finalPayload);
       setRegisterResult(result);
     } catch (error) {
       setRegisterError(t('redmine_create_tasks.app.register_failed', 'Failed to register issues.'));

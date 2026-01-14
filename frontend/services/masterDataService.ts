@@ -3,7 +3,7 @@ import { t } from '../i18n';
 export interface MasterData {
     trackers: { id: number; name: string }[];
     users: { id: number; name: string }[];
-    issue_statuses: { id: number; name: string }[];
+    issue_statuses: { id: number; name: string; is_closed?: boolean }[];
     priorities: { id: number; name: string }[];
     categories: { id: number; name: string }[];
 }

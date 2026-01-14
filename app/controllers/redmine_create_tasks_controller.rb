@@ -48,7 +48,7 @@ class RedmineCreateTasksController < ApplicationController
     render json: {
       trackers: @project.trackers.select(:id, :name).map { |t| { id: t.id, name: t.name } },
       users: @project.assignable_users.map { |u| { id: u.id, name: u.name } },
-      issue_statuses: IssueStatus.all.select(:id, :name).map { |s| { id: s.id, name: s.name } },
+      issue_statuses: IssueStatus.all.select(:id, :name, :is_closed).map { |s| { id: s.id, name: s.name, is_closed: s.is_closed } },
       priorities: IssuePriority.active.select(:id, :name).map { |p| { id: p.id, name: p.name } },
       categories: @project.issue_categories.select(:id, :name).map { |c| { id: c.id, name: c.name } }
     }
