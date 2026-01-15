@@ -39,6 +39,7 @@ en:
       focus_leaves: Focus Leaves
       undo: Undo
       export: Export
+      fullscreen: Toggle Fullscreen
       register_settings: Registration Settings
       delete: Delete
       add_prereq: Add Prerequisite
@@ -86,6 +87,14 @@ en:
       category: Category
       category_none: (None)
       create_root_issue: Register final deliverable as a parent ticket
+      root_handling: Final Deliverable (Root Task) Setup
+      create_new: Register as a new ticket
+      create_new_desc: Creates a new ticket for the root node.
+      use_existing: Link to existing ticket
+      issue_id_placeholder: Issue ID
+      load: Load
+      load_error: Details not found.
+      cannot_use_closed: Closed Ticket
       relation_mode_label: Relation Mode
       relation_mode_child: Register as child tickets
       relation_mode_child_desc: Registers mind map hierarchy as Redmine parent-child tickets
@@ -101,7 +110,11 @@ en:
       date_unknown: TBD
       date_range: "%{start} - %{end}"
       root_due: "Due: %{date}"
-      detach_confirm: "Detach connection to \"%{title}\"?\\n(The node will move under the root.)"
+      detach_confirm: "Detach connection to \"%{title}\"?\n(The node will move under the root.)"
+      critical_path_label: CRITICAL PATH
+    header:
+      edit_title: Double-click to edit
+      subtitle: Redmine Plugin
     settings:
       ai_provider: AI Provider
       ai_prompt: Default Prompt

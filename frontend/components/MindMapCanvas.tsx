@@ -565,7 +565,9 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
 
                     {isCritical && !isRoot && (
                       <g transform={`translate(0, -40)`}>
-                        <text textAnchor="middle" className="text-[8px] font-black fill-orange-600 uppercase tracking-tighter animate-pulse">CRITICAL PATH</text>
+                        <text textAnchor="middle" className="text-[8px] font-black fill-orange-600 uppercase tracking-tighter animate-pulse">
+                          {t('redmine_create_tasks.canvas.critical_path_label', 'CRITICAL PATH')}
+                        </text>
                       </g>
                     )}
                   </g>

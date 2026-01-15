@@ -39,6 +39,7 @@ ja:
       focus_leaves: 終端にフォーカス
       undo: 元に戻す
       export: エクスポート
+      fullscreen: フルスクリーン切替
       register_settings: チケット設定
       delete: 削除
       add_prereq: 前提タスクを追加
@@ -86,6 +87,14 @@ ja:
       category: カテゴリ
       category_none: （なし）
       create_root_issue: 最終成果物を親チケットとして登録する
+      root_handling: 最終成果物（親チケット）の設定
+      create_new: 新規チケットとして登録
+      create_new_desc: ルートノードの新しいチケットを作成します。
+      use_existing: 既存のチケットを使用
+      issue_id_placeholder: チケットID
+      load: 読み込み
+      load_error: 詳細が見つかりませんでした。
+      cannot_use_closed: 終了したチケット
       relation_mode_label: 関連付けモード
       relation_mode_child: 子チケットとして登録
       relation_mode_child_desc: マインドマップの親子関係をRedmineの親子チケットとして登録します
@@ -102,6 +111,10 @@ ja:
       date_range: "%{start} 〜 %{end}"
       root_due: "完了予定: %{date}"
       detach_confirm: "「%{title}」への接続を解除しますか？\n（ノードはルート直下に移動します）"
+      critical_path_label: クリティカルパス
+    header:
+      edit_title: ダブルクリックでタイトルを編集
+      subtitle: Redmineプラグイン
     settings:
       ai_provider: AI提供元
       ai_prompt: デフォルトプロンプト
