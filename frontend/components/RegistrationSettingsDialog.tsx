@@ -12,6 +12,7 @@ export interface RegistrationSettings {
     category_id?: string;
     create_root_issue?: boolean;
     existing_root_issue_id?: string;
+    relation_mode?: 'child' | 'dependency';
 }
 
 interface RegistrationSettingsDialogProps {
@@ -217,6 +218,50 @@ const RegistrationSettingsDialog: React.FC<RegistrationSettingsDialogProps> = ({
                                         )}
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+                            <label className="block text-sm font-bold text-slate-700 mb-2">
+                                {t('redmine_create_tasks.registration.relation_mode_label', 'Relation Mode')}
+                            </label>
+
+                            <div className="flex flex-col gap-3">
+                                <label className="flex items-start gap-3 cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="relation_mode"
+                                        className="mt-1 h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                        checked={settings.relation_mode !== 'dependency'}
+                                        onChange={() => handleChange('relation_mode', 'child')}
+                                    />
+                                    <div>
+                                        <div className="text-sm font-medium text-slate-700">
+                                            {t('redmine_create_tasks.registration.relation_mode_child', 'Register as child tickets')}
+                                        </div>
+                                        <div className="text-xs text-slate-500">
+                                            {t('redmine_create_tasks.registration.relation_mode_child_desc', 'Registers mind map hierarchy as Redmine parent-child tickets')}
+                                        </div>
+                                    </div>
+                                </label>
+
+                                <label className="flex items-start gap-3 cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="relation_mode"
+                                        className="mt-1 h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                        checked={settings.relation_mode === 'dependency'}
+                                        onChange={() => handleChange('relation_mode', 'dependency')}
+                                    />
+                                    <div>
+                                        <div className="text-sm font-medium text-slate-700">
+                                            {t('redmine_create_tasks.registration.relation_mode_dependency', 'Register as dependencies')}
+                                        </div>
+                                        <div className="text-xs text-slate-500">
+                                            {t('redmine_create_tasks.registration.relation_mode_dependency_desc', 'Registers mind map hierarchy as Redmine precedes/follows relations')}
+                                        </div>
+                                    </div>
+                                </label>
                             </div>
                         </div>
 

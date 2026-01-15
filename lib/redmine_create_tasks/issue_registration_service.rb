@@ -66,7 +66,10 @@ module RedmineCreateTasks
       end
 
       apply_dependencies(task_list, issues_by_task, result)
-      apply_hierarchy(task_list, issues_by_task, result)
+      # Only apply hierarchy in 'child' mode (or when relation_mode is not set)
+      unless defaults[:relation_mode]&.to_s == 'dependency'
+        apply_hierarchy(task_list, issues_by_task, result)
+      end
       result
     end
 
@@ -172,9 +175,11 @@ module RedmineCreateTasks
 
         Array(task[:dependencies]).each do |dep_id|
           dep_issue = issues_by_task[dep_id]
+          
+          # If not found in current batch, try to find external issue
           if dep_issue.nil?
-            result.add_warning(task[:id], I18n.t('redmine_create_tasks.warnings.dependency_missing', dependency: dep_id))
-            next
+            dep_issue = find_external_dependency(dep_id, result, task[:id])
+            next if dep_issue.nil?
           end
 
           next if IssueRelation.where(
@@ -258,6 +263,21 @@ module RedmineCreateTasks
         result.add_warning(
           task_id,
           I18n.t('redmine_create_tasks.warnings.parent_closed', id: parent_id)
+        )
+        return nil
+      end
+
+      issue
+    end
+
+    def find_external_dependency(dep_id, result, task_id)
+      return nil unless dep_id.to_s.match?(/\A\d+\z/)
+
+      issue = Issue.find_by(id: dep_id)
+      if issue.nil?
+        result.add_warning(
+          task_id,
+          I18n.t('redmine_create_tasks.warnings.dependency_missing', dependency: dep_id)
         )
         return nil
       end

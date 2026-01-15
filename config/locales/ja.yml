@@ -86,6 +86,11 @@ ja:
       category: カテゴリ
       category_none: （なし）
       create_root_issue: 最終成果物を親チケットとして登録する
+      relation_mode_label: 関連付けモード
+      relation_mode_child: 子チケットとして登録
+      relation_mode_child_desc: マインドマップの親子関係をRedmineの親子チケットとして登録します
+      relation_mode_dependency: 依存関係として登録
+      relation_mode_dependency_desc: マインドマップの親子関係をRedmineの先行/後続関係として登録します
       close: 閉じる
       cancel: キャンセル
       save: 保存する

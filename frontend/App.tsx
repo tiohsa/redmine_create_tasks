@@ -543,10 +543,14 @@ const App: React.FC = () => {
 
     try {
       const depMap = buildDependencyMap(data, connections);
+      const isDependencyMode = registrationSettings.relation_mode === 'dependency';
+
       const tasksPayload = nodes.map(node => {
+        // Get explicit dependencies from connections
         const deps = Array.from(depMap.get(node.id) || []);
         let parentId = parentMap.get(node.id);
 
+        // Handle root parent
         if (parentId === 'root') {
           if (registrationSettings.create_root_issue) {
             parentId = 'root';
@@ -557,15 +561,34 @@ const App: React.FC = () => {
           }
         }
 
-        return {
-          id: node.id,
-          subject: node.text,
-          start_date: node.startDate,
-          due_date: node.endDate,
-          man_days: node.effort,
-          dependencies: deps.length > 0 ? deps : undefined,
-          parent_task_id: parentId
-        };
+        if (isDependencyMode) {
+          // In dependency mode, convert parent-child relationships to dependencies
+          // Parent becomes a dependency (child depends on parent completing first)
+          const allDeps = [...deps];
+          if (parentId && !allDeps.includes(parentId)) {
+            allDeps.push(parentId);
+          }
+          return {
+            id: node.id,
+            subject: node.text,
+            start_date: node.startDate,
+            due_date: node.endDate,
+            man_days: node.effort,
+            dependencies: allDeps.length > 0 ? allDeps : undefined,
+            // No parent_task_id in dependency mode
+          };
+        } else {
+          // Child mode: use parent_task_id for hierarchy
+          return {
+            id: node.id,
+            subject: node.text,
+            start_date: node.startDate,
+            due_date: node.endDate,
+            man_days: node.effort,
+            dependencies: deps.length > 0 ? deps : undefined,
+            parent_task_id: parentId
+          };
+        }
       });
 
       const finalPayload = { tasks: tasksPayload, defaults: registrationSettings };

@@ -86,6 +86,11 @@ en:
       category: Category
       category_none: (None)
       create_root_issue: Register final deliverable as a parent ticket
+      relation_mode_label: Relation Mode
+      relation_mode_child: Register as child tickets
+      relation_mode_child_desc: Registers mind map hierarchy as Redmine parent-child tickets
+      relation_mode_dependency: Register as dependencies
+      relation_mode_dependency_desc: Registers mind map hierarchy as Redmine precedes/follows relations
       close: Close
       cancel: Cancel
       save: Save
