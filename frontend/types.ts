@@ -8,6 +8,18 @@ export interface MindMapNode {
   children: MindMapNode[];
   direction?: 'left' | 'right';
   isAIExpanding?: boolean;
+  isRoot?: boolean;
+}
+
+declare global {
+  interface Window {
+    RedmineCreateTasks: {
+      rootUrl: string;
+      projectIdentifier: string;
+    };
+    createTasksI18n: any;
+    createTasksI18nFallback: any;
+  }
 }
 
 export interface Connection {

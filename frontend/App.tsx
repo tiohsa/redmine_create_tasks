@@ -66,8 +66,7 @@ const createInitialPage = (): Page => ({
 });
 
 const getProjectId = () => {
-  const match = window.location.pathname.match(/projects\/([^\/]+)/);
-  return match ? match[1] : 'default';
+  return window.RedmineCreateTasks?.projectIdentifier || 'default';
 };
 
 const STORAGE_KEY = `gemini_mindmap_data_${getProjectId()}`;

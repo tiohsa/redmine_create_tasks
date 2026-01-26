@@ -1,19 +1,16 @@
 import { getApiHeaders } from './apiUtils';
+import { getApiUrl, getProjectIdentifier } from '../utils/url';
 
 type AiExtractResponse = {
   tasks: string[];
 };
 
-const getProjectId = () => {
-  const match = window.location.pathname.match(/projects\/([^\/]+)/);
-  return match ? match[1] : 'default';
-};
 
 export const expandNodeWithAI = async (
   topic: string,
   promptOverride?: string
 ): Promise<string[]> => {
-  const response = await fetch(`/projects/${getProjectId()}/redmine_create_tasks/ai/extract`, {
+  const response = await fetch(getApiUrl(`projects/${getProjectIdentifier()}/redmine_create_tasks/ai/extract`), {
     method: 'POST',
     headers: getApiHeaders(),
     body: JSON.stringify({ topic, provider: 'gemini', prompt: promptOverride })

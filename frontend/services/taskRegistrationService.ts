@@ -1,4 +1,5 @@
 import { TaskRegistrationResult } from '../types';
+import { getApiUrl } from '../utils/url';
 
 interface RegisterPayload {
   tasks: any[];
@@ -19,7 +20,7 @@ export const registerTasks = async (projectId: string, payload: RegisterPayload)
     'X-CSRF-Token': token || '',
   };
 
-  const response = await fetch(`/projects/${projectId}/redmine_create_tasks/issues`, {
+  const response = await fetch(getApiUrl(`projects/${projectId}/redmine_create_tasks/issues`), {
     method: 'POST',
     headers,
     body: JSON.stringify(payload),
@@ -39,7 +40,7 @@ export interface IssueDetails {
 }
 
 export const fetchIssue = async (issueId: string): Promise<IssueDetails> => {
-  const response = await fetch(`/issues/${issueId}.json`);
+  const response = await fetch(getApiUrl(`issues/${issueId}.json`));
   if (!response.ok) {
     if (response.status === 404) {
       throw new Error('Issue not found');

@@ -1,11 +1,5 @@
 type TranslationMap = Record<string, string>;
 
-declare global {
-  interface Window {
-    createTasksI18n?: TranslationMap;
-    createTasksI18nFallback?: TranslationMap;
-  }
-}
 
 const translations: TranslationMap = window.createTasksI18n || {};
 const fallbackTranslations: TranslationMap = window.createTasksI18nFallback || {};

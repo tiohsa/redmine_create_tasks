@@ -114,6 +114,10 @@
   <script>
     window.createTasksI18n = <%= raw translations.to_json %>;
     window.createTasksI18nFallback = <%= raw fallback_translations.to_json %>;
+    window.RedmineCreateTasks = {
+      rootUrl: '<%= Redmine::Utils.relative_url_root %>',
+      projectIdentifier: '<%= @project.identifier %>'
+    };
   </script>
   <title><%= l(:label_redmine_create_tasks) %></title>
   <%= stylesheet_link_tag 'spa', plugin: 'redmine_create_tasks' %>

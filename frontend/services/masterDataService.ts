@@ -1,4 +1,5 @@
 import { t } from '../i18n';
+import { getApiUrl } from '../utils/url';
 
 export interface MasterData {
     trackers: { id: number; name: string }[];
@@ -9,7 +10,7 @@ export interface MasterData {
 }
 
 export const fetchMasterData = async (projectId: string): Promise<MasterData> => {
-    const response = await fetch(`/projects/${projectId}/redmine_create_tasks/data`, {
+    const response = await fetch(getApiUrl(`projects/${projectId}/redmine_create_tasks/data`), {
         method: 'GET',
     });
 

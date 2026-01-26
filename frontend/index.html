@@ -49,6 +49,14 @@
       animation: rapid-shake 0.1s infinite;
     }
   </style>
+  <script>
+    if (!window.RedmineCreateTasks) {
+      window.RedmineCreateTasks = {
+        rootUrl: '',
+        projectIdentifier: 'default'
+      };
+    }
+  </script>
 </head>
 <body>
   <div id="root" class="create-tasks-root"></div>

@@ -1,5 +1,6 @@
 import { getApiHeaders } from './apiUtils';
 import { t } from '../i18n';
+import { getApiUrl } from '../utils/url';
 
 type AiSettings = {
   provider: 'gemini' | 'azure-openai';
@@ -7,7 +8,7 @@ type AiSettings = {
 };
 
 export const fetchAiSettings = async (projectId: string): Promise<AiSettings> => {
-  const response = await fetch(`/projects/${projectId}/redmine_create_tasks/ai/settings`);
+  const response = await fetch(getApiUrl(`projects/${projectId}/redmine_create_tasks/ai/settings`));
   if (!response.ok) {
     throw new Error(t('redmine_create_tasks.app.ai_settings_load_failed', 'Failed to load AI settings.'));
   }
@@ -15,7 +16,7 @@ export const fetchAiSettings = async (projectId: string): Promise<AiSettings> =>
 };
 
 export const fetchAiDefaults = async (projectId: string): Promise<AiSettings> => {
-  const response = await fetch(`/projects/${projectId}/redmine_create_tasks/ai/defaults`);
+  const response = await fetch(getApiUrl(`projects/${projectId}/redmine_create_tasks/ai/defaults`));
   if (!response.ok) {
     throw new Error(t('redmine_create_tasks.app.ai_defaults_load_failed', 'Failed to load defaults.'));
   }
@@ -26,7 +27,7 @@ export const updateAiSettings = async (
   projectId: string,
   payload: AiSettings
 ): Promise<AiSettings> => {
-  const response = await fetch(`/projects/${projectId}/redmine_create_tasks/ai/settings`, {
+  const response = await fetch(getApiUrl(`projects/${projectId}/redmine_create_tasks/ai/settings`), {
     method: 'PUT',
     headers: getApiHeaders(),
     body: JSON.stringify(payload)
