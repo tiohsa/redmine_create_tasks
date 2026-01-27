@@ -8,6 +8,7 @@ Redmine::Plugin.register :redmine_create_tasks do
   version '0.0.1'
   url 'https://github.com/tiohsa/redmine_create_tasks'
   author_url 'https://github.com/tiohsa'
+  license 'GPL v2'
 
   project_module :redmine_create_tasks do
     permission :view_redmine_create_tasks, {

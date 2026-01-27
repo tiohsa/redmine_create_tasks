@@ -102,4 +102,4 @@ Redmine の起動環境（systemd や docker-compose など）に設定してく
 
 ## ライセンス
 
-MIT License
+GNU General Public License v2.0 (GPLv2)

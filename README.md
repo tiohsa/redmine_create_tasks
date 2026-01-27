@@ -102,4 +102,4 @@ Set these in the Redmine process environment (systemd, docker-compose, etc.).
 
 ## License
 
-MIT License
+GNU General Public License v2.0 (GPLv2)
