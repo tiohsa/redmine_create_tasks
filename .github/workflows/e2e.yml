@@ -1,0 +1,100 @@
+name: E2E
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  redmine-plugin-e2e:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        run: corepack enable
+
+      - name: Build frontend assets
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Start Redmine stack
+        run: docker compose -f test/e2e/docker-compose.ci.yml up -d
+
+      - name: Wait for Redmine
+        run: |
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:3000/login >/dev/null; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Redmine did not become ready in time"
+          docker compose -f test/e2e/docker-compose.ci.yml logs
+          exit 1
+
+      - name: Run plugin migration
+        run: docker compose -f test/e2e/docker-compose.ci.yml exec -T redmine bundle exec rake redmine:plugins:migrate NAME=redmine_create_tasks RAILS_ENV=production
+
+      - name: Prepare E2E fixtures
+        run: |
+          docker compose -f test/e2e/docker-compose.ci.yml exec -T redmine bundle exec rails runner -e production '
+            user = User.find_by(login: "admin")
+            raise "admin user not found" unless user
+            user.must_change_passwd = false
+            user.password = "admin1234"
+            user.password_confirmation = "admin1234"
+            user.save!
+
+            project = Project.find_or_create_by!(identifier: "e2e-project") do |p|
+              p.name = "E2E Project"
+            end
+
+            EnabledModule.find_or_create_by!(project: project, name: "issue_tracking")
+            EnabledModule.find_or_create_by!(project: project, name: "redmine_create_tasks")
+
+            puts "Prepared E2E project and admin account"
+          '
+
+      - name: Install Playwright
+        run: npm install --no-save playwright
+
+      - name: Install Playwright browsers
+        uses: microsoft/playwright-github-action@v1
+        with:
+          version: latest
+
+      - name: Run E2E
+        env:
+          REDMINE_BASE_URL: http://127.0.0.1:3000
+          REDMINE_PROJECT_IDENTIFIER: e2e-project
+          REDMINE_LOGIN: admin
+          REDMINE_PASSWORD: admin1234
+          E2E_ARTIFACTS_DIR: test/e2e/artifacts
+        run: node test/e2e/redmine_create_tasks.e2e.mjs
+
+      - name: Dump container logs on failure
+        if: failure()
+        run: docker compose -f test/e2e/docker-compose.ci.yml logs --no-color
+
+      - name: Upload E2E artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-artifacts
+          path: test/e2e/artifacts
+          if-no-files-found: ignore
+
+      - name: Stop Redmine stack
+        if: always()
+        run: docker compose -f test/e2e/docker-compose.ci.yml down -v
