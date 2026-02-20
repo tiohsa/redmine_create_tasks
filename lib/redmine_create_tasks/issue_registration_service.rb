@@ -2,6 +2,8 @@ require 'date'
 
 module RedmineCreateTasks
   class IssueRegistrationService
+    EXTERNAL_ISSUE_ID_PATTERN = /\A\d+\z/.freeze
+
     attr_reader :project, :user
 
     def initialize(project:, user:)
@@ -15,65 +17,30 @@ module RedmineCreateTasks
       return result if task_list.empty?
 
       defaults = normalize_defaults(defaults)
+      resolved_defaults = resolve_issue_defaults(defaults)
 
-      unless @user.allowed_to?(:add_issues, @project)
-        task_list.each { |task| result.add_failure(task[:id], I18n.t('redmine_create_tasks.errors.no_permission')) }
-        return result
-      end
+      return add_failures_for_all_tasks(task_list, result, I18n.t('redmine_create_tasks.errors.no_permission')) unless @user.allowed_to?(:add_issues, @project)
 
       tracker, tracker_warning = resolve_tracker(defaults)
-      if tracker.nil?
-        task_list.each { |task| result.add_failure(task[:id], I18n.t('redmine_create_tasks.errors.tracker_unavailable')) }
-        return result
-      end
+      return add_failures_for_all_tasks(task_list, result, I18n.t('redmine_create_tasks.errors.tracker_unavailable')) if tracker.nil?
 
-      issues_by_task = {}
-
-      task_list.each do |task|
-        subject = task[:subject].to_s.strip
-        if subject.empty?
-          result.add_failure(task[:id], I18n.t('redmine_create_tasks.errors.subject_missing'))
-          next
-        end
-
-        issue = Issue.new(
-          project: @project,
-          tracker: tracker,
-          subject: subject,
-          priority: resolve_priority(defaults),
-          status: resolve_status(defaults)
-        )
-        
-        assigned_to = resolve_assigned_to(defaults)
-        issue.assigned_to = assigned_to if assigned_to
-        issue.author = @user
-        
-        category = resolve_category(defaults)
-        issue.category = category if category
-
-        apply_dates(issue, task, result)
-        apply_estimated_hours(issue, task, result)
-        if tracker_warning
-          result.add_warning(task[:id], I18n.t('redmine_create_tasks.warnings.tracker_default'))
-        end
-
-        if issue.save
-          result.add_success(issue.id)
-          issues_by_task[task[:id]] = issue
-        else
-          result.add_failure(task[:id], issue.errors.full_messages.join(', '))
-        end
-      end
+      issues_by_task = create_issues(task_list, tracker, resolved_defaults, result, tracker_warning)
 
       apply_dependencies(task_list, issues_by_task, result)
-      # Only apply hierarchy in 'child' mode (or when relation_mode is not set)
-      unless defaults[:relation_mode]&.to_s == 'dependency'
-        apply_hierarchy(task_list, issues_by_task, result)
-      end
+      apply_hierarchy(task_list, issues_by_task, result) unless dependency_mode?(defaults)
       result
     end
 
     private
+
+    def add_failures_for_all_tasks(task_list, result, reason)
+      task_list.each { |task| result.add_failure(task[:id], reason) }
+      result
+    end
+
+    def dependency_mode?(defaults)
+      defaults[:relation_mode]&.to_s == 'dependency'
+    end
 
     def normalize_defaults(defaults)
       return {} unless defaults.respond_to?(:to_h) || defaults.respond_to?(:to_unsafe_h)
@@ -96,6 +63,15 @@ module RedmineCreateTasks
           parent_task_id: (data['parent_task_id'] || data[:parent_task_id])&.to_s
         }
       end
+    end
+
+    def resolve_issue_defaults(defaults)
+      {
+        priority: resolve_priority(defaults),
+        status: resolve_status(defaults),
+        assigned_to: resolve_assigned_to(defaults),
+        category: resolve_category(defaults)
+      }
     end
 
     def resolve_tracker(defaults)
@@ -141,6 +117,51 @@ module RedmineCreateTasks
       nil
     end
 
+    def create_issues(task_list, tracker, resolved_defaults, result, tracker_warning)
+      issues_by_task = {}
+
+      task_list.each do |task|
+        subject = task[:subject].to_s.strip
+        if subject.empty?
+          result.add_failure(task[:id], I18n.t('redmine_create_tasks.errors.subject_missing'))
+          next
+        end
+
+        issue = build_issue(task, subject, tracker, resolved_defaults, result, tracker_warning)
+        save_issue(task, issue, issues_by_task, result)
+      end
+
+      issues_by_task
+    end
+
+    def build_issue(task, subject, tracker, resolved_defaults, result, tracker_warning)
+      issue = Issue.new(
+        project: @project,
+        tracker: tracker,
+        subject: subject,
+        priority: resolved_defaults[:priority],
+        status: resolved_defaults[:status]
+      )
+
+      issue.assigned_to = resolved_defaults[:assigned_to] if resolved_defaults[:assigned_to]
+      issue.category = resolved_defaults[:category] if resolved_defaults[:category]
+      issue.author = @user
+
+      apply_dates(issue, task, result)
+      apply_estimated_hours(issue, task, result)
+      result.add_warning(task[:id], I18n.t('redmine_create_tasks.warnings.tracker_default')) if tracker_warning
+      issue
+    end
+
+    def save_issue(task, issue, issues_by_task, result)
+      if issue.save
+        result.add_success(issue.id)
+        issues_by_task[task[:id]] = issue
+      else
+        result.add_failure(task[:id], issue.errors.full_messages.join(', '))
+      end
+    end
+
     def apply_dates(issue, task, result)
       start_date = parse_date(task[:start_date])
       due_date = parse_date(task[:due_date])
@@ -174,32 +195,10 @@ module RedmineCreateTasks
         next if issue.nil?
 
         Array(task[:dependencies]).each do |dep_id|
-          dep_issue = issues_by_task[dep_id]
-          
-          # If not found in current batch, try to find external issue
-          if dep_issue.nil?
-            dep_issue = find_external_dependency(dep_id, result, task[:id])
-            next if dep_issue.nil?
-          end
+          dep_issue = resolve_dependency_issue(dep_id, issues_by_task, result, task[:id])
+          next if dep_issue.nil? || precedes_relation_exists?(dep_issue, issue)
 
-          next if IssueRelation.where(
-            issue_from_id: dep_issue.id,
-            issue_to_id: issue.id,
-            relation_type: 'precedes'
-          ).exists?
-
-          relation = IssueRelation.new(
-            issue_from: dep_issue,
-            issue_to: issue,
-            relation_type: 'precedes'
-          )
-
-          unless relation.save
-            result.add_warning(
-              task[:id],
-              I18n.t('redmine_create_tasks.warnings.dependency_create_failed', reason: relation.errors.full_messages.join(', '))
-            )
-          end
+          create_precedes_relation(dep_issue, issue, result, task[:id])
         end
       end
     end
@@ -213,12 +212,7 @@ module RedmineCreateTasks
 
         next if issue.nil?
 
-        # If parent_issue is nil (e.g. parent was not in the list), we ignore it.
-        # But now we check if it is an existing external issue.
-        if parent_issue.nil?
-          parent_issue = find_external_parent(task[:parent_task_id], result, task[:id])
-        end
-        
+        parent_issue = find_external_parent(task[:parent_task_id], result, task[:id]) if parent_issue.nil?
         next if parent_issue.nil?
 
         issue.reload
@@ -231,6 +225,33 @@ module RedmineCreateTasks
           )
         end
       end
+    end
+
+    def resolve_dependency_issue(dep_id, issues_by_task, result, task_id)
+      issues_by_task[dep_id] || find_external_dependency(dep_id, result, task_id)
+    end
+
+    def precedes_relation_exists?(from_issue, to_issue)
+      IssueRelation.where(
+        issue_from_id: from_issue.id,
+        issue_to_id: to_issue.id,
+        relation_type: 'precedes'
+      ).exists?
+    end
+
+    def create_precedes_relation(dep_issue, issue, result, task_id)
+      relation = IssueRelation.new(
+        issue_from: dep_issue,
+        issue_to: issue,
+        relation_type: 'precedes'
+      )
+
+      return if relation.save
+
+      result.add_warning(
+        task_id,
+        I18n.t('redmine_create_tasks.warnings.dependency_create_failed', reason: relation.errors.full_messages.join(', '))
+      )
     end
 
     def parse_date(value)
@@ -248,7 +269,7 @@ module RedmineCreateTasks
     end
 
     def find_external_parent(parent_id, result, task_id)
-      return nil unless parent_id.to_s.match?(/\A\d+\z/)
+      return nil unless parent_id.to_s.match?(EXTERNAL_ISSUE_ID_PATTERN)
 
       issue = Issue.find_by(id: parent_id)
       if issue.nil?
@@ -271,7 +292,7 @@ module RedmineCreateTasks
     end
 
     def find_external_dependency(dep_id, result, task_id)
-      return nil unless dep_id.to_s.match?(/\A\d+\z/)
+      return nil unless dep_id.to_s.match?(EXTERNAL_ISSUE_ID_PATTERN)
 
       issue = Issue.find_by(id: dep_id)
       if issue.nil?

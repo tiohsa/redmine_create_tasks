@@ -76,6 +76,20 @@ const flattenNodes = (node: MindMapNode): MindMapNode[] => [
   ...node.children.flatMap(flattenNodes)
 ];
 
+const addHierarchyDependency = (
+  parent: MindMapNode,
+  child: MindMapNode,
+  addDep: (dependsOn: string, target: string) => void
+) => {
+  if (child.direction === 'left') {
+    // Left child is a prerequisite of parent.
+    addDep(child.id, parent.id);
+    return;
+  }
+  // Right child (or default) is a successor of parent.
+  addDep(parent.id, child.id);
+};
+
 const buildDependencyMap = (root: MindMapNode, connections: Connection[]): Map<string, Set<string>> => {
   const depMap = new Map<string, Set<string>>();
   const addDep = (dependsOn: string, target: string) => {
@@ -87,7 +101,7 @@ const buildDependencyMap = (root: MindMapNode, connections: Connection[]): Map<s
 
   const walkTree = (node: MindMapNode) => {
     node.children.forEach(child => {
-      addDep(child.id, node.id);
+      addHierarchyDependency(node, child, addDep);
       walkTree(child);
     });
   };
@@ -610,20 +624,22 @@ const App: React.FC = () => {
     };
     flatten(data);
 
-    const rootNode = nodesMap.get('root');
-    if (!rootNode || !rootNode.endDate) {
-      handleUpdateNodeData('root', { endDate: todayIso() });
-    }
-
     const dependentsOf = new Map<string, string[]>();
-    const addDep = (pre: string, dep: string) => {
-      const existing = dependentsOf.get(pre) || [];
-      if (!existing.includes(dep)) dependentsOf.set(pre, [...existing, dep]);
+    const prerequisitesOf = new Map<string, string[]>();
+    const addDep = (dependsOn: string, target: string) => {
+      const nextDependents = dependentsOf.get(dependsOn) || [];
+      if (!nextDependents.includes(target)) {
+        dependentsOf.set(dependsOn, [...nextDependents, target]);
+      }
+      const nextPrerequisites = prerequisitesOf.get(target) || [];
+      if (!nextPrerequisites.includes(dependsOn)) {
+        prerequisitesOf.set(target, [...nextPrerequisites, dependsOn]);
+      }
     };
 
     const buildHierarchyDeps = (node: MindMapNode) => {
       node.children.forEach(child => {
-        addDep(child.id, node.id);
+        addHierarchyDependency(node, child, addDep);
         buildHierarchyDeps(child);
       });
     };
@@ -633,43 +649,114 @@ const App: React.FC = () => {
       addDep(conn.fromId, conn.toId);
     });
 
+    const rootNode = nodesMap.get('root');
+    const rootEndDate = rootNode?.endDate || todayIso();
+    const rootEffort = rootNode?.effort || 1;
+    const rootStartDate = addDays(rootEndDate, -(rootEffort - 1));
+
     const calculatedDates = new Map<string, { start: string, end: string }>();
+    calculatedDates.set('root', { start: rootStartDate, end: rootEndDate });
 
-    const calculateForNode = (id: string): { start: string, end: string } => {
+    const predecessorsOfRoot = new Set<string>();
+    const collectPredecessors = (id: string) => {
+      (prerequisitesOf.get(id) || []).forEach(preId => {
+        if (predecessorsOfRoot.has(preId)) return;
+        predecessorsOfRoot.add(preId);
+        collectPredecessors(preId);
+      });
+    };
+    collectPredecessors('root');
+
+    const successorsOfRoot = new Set<string>();
+    const collectSuccessors = (id: string) => {
+      (dependentsOf.get(id) || []).forEach(nextId => {
+        if (successorsOfRoot.has(nextId)) return;
+        successorsOfRoot.add(nextId);
+        collectSuccessors(nextId);
+      });
+    };
+    collectSuccessors('root');
+
+    const calculateBackward = (id: string, stack: Set<string> = new Set()): { start: string, end: string } => {
       if (calculatedDates.has(id)) return calculatedDates.get(id)!;
-
       const node = nodesMap.get(id);
-      if (!node) return { start: '', end: '' };
+      if (!node) return { start: rootStartDate, end: rootEndDate };
+      if (stack.has(id)) {
+        const end = node.endDate || rootEndDate;
+        const start = addDays(end, -((node.effort || 1) - 1));
+        return { start, end };
+      }
 
+      stack.add(id);
+      const nextTasks = (dependentsOf.get(id) || []).filter(nextId => nextId === 'root' || predecessorsOfRoot.has(nextId));
       let endDate = node.endDate || '';
-
-      if (id !== 'root') {
-        const nextTasks = dependentsOf.get(id) || [];
-        if (nextTasks.length > 0) {
-          const nextResults = nextTasks.map(nextId => calculateForNode(nextId));
-          const validStarts = nextResults.filter(r => r.start !== '').map(r => r.start);
-
-          if (validStarts.length > 0) {
-            const earliestNextStart = validStarts.reduce((min, cur) => cur < min ? cur : min, validStarts[0]);
-            endDate = addDays(earliestNextStart, -1);
-          }
+      if (nextTasks.length > 0) {
+        const nextResults = nextTasks.map(nextId => calculateBackward(nextId, stack));
+        const validStarts = nextResults.map(r => r.start).filter(Boolean);
+        if (validStarts.length > 0) {
+          const earliestNextStart = validStarts.reduce((min, cur) => cur < min ? cur : min, validStarts[0]);
+          endDate = addDays(earliestNextStart, -1);
         }
       }
-
       if (!endDate) {
-        endDate = node.endDate || todayIso();
+        endDate = node.endDate || rootEndDate;
       }
+      stack.delete(id);
 
       const effort = node.effort || 1;
       const startDate = addDays(endDate, -(effort - 1));
-
       const result = { start: startDate, end: endDate };
       calculatedDates.set(id, result);
       return result;
     };
 
-    nodesMap.forEach((_, id) => {
-      calculateForNode(id);
+    const calculateForward = (id: string, stack: Set<string> = new Set()): { start: string, end: string } => {
+      if (calculatedDates.has(id)) return calculatedDates.get(id)!;
+      const node = nodesMap.get(id);
+      if (!node) return { start: rootStartDate, end: rootEndDate };
+      if (stack.has(id)) {
+        const start = node.startDate || rootStartDate;
+        const end = addDays(start, (node.effort || 1) - 1);
+        return { start, end };
+      }
+
+      stack.add(id);
+      const prevTasks = (prerequisitesOf.get(id) || []).filter(prevId =>
+        prevId === 'root' || predecessorsOfRoot.has(prevId) || successorsOfRoot.has(prevId)
+      );
+      let startDate = node.startDate || '';
+      if (prevTasks.length > 0) {
+        const prevResults = prevTasks.map(prevId => calculateForward(prevId, stack));
+        const validEnds = prevResults.map(r => r.end).filter(Boolean);
+        if (validEnds.length > 0) {
+          const latestPrevEnd = validEnds.reduce((max, cur) => cur > max ? cur : max, validEnds[0]);
+          startDate = addDays(latestPrevEnd, 1);
+        }
+      }
+      if (!startDate) {
+        startDate = node.startDate || rootStartDate;
+      }
+      stack.delete(id);
+
+      const effort = node.effort || 1;
+      const endDate = addDays(startDate, effort - 1);
+      const result = { start: startDate, end: endDate };
+      calculatedDates.set(id, result);
+      return result;
+    };
+
+    predecessorsOfRoot.forEach(id => {
+      calculateBackward(id);
+    });
+    successorsOfRoot.forEach(id => {
+      calculateForward(id);
+    });
+
+    nodesMap.forEach((node, id) => {
+      if (calculatedDates.has(id)) return;
+      const end = node.endDate || rootEndDate;
+      const start = node.startDate || addDays(end, -((node.effort || 1) - 1));
+      calculatedDates.set(id, { start, end });
     });
 
     const updateTreeWithDates = (node: MindMapNode): MindMapNode => {
@@ -685,7 +772,7 @@ const App: React.FC = () => {
     setData(prev => updateTreeWithDates(prev));
     setCriticalNodeIds(new Set());
     setCriticalConnIds(new Set());
-  }, [data, connections, saveToHistory, handleUpdateNodeData]);
+  }, [data, connections, saveToHistory]);
 
   const handleDetectCriticalPath = useCallback(() => {
     if (criticalNodeIds.size > 0) {

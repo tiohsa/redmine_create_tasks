@@ -27,7 +27,6 @@ class RedmineCreateTasksAiControllerTest < ActionController::TestCase
     body = JSON.parse(@response.body)
     assert body.key?('error')
   end
-end
 
   def test_settings_returns_provider_and_prompt
     get :settings, params: { project_id: @project.identifier }
@@ -45,3 +44,4 @@ end
     body = JSON.parse(@response.body)
     assert body.key?('error')
   end
+end

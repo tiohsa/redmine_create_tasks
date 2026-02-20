@@ -29,32 +29,37 @@ class RedmineCreateTasksController < ApplicationController
 
   def register_issues
     tasks = params[:tasks]
-    unless tasks.is_a?(Array)
-      render json: { error: 'tasks is required' }, status: :unprocessable_entity
-      return
-    end
+    return render json: { error: 'tasks is required' }, status: :unprocessable_entity unless tasks.is_a?(Array)
 
     defaults = params[:defaults]
-    # defaults is optional, but if provided, it should be a hash.
-    # Strong parameters handling might be needed depending on Rails version/config,
-    # but for now we expect a simple hash or nil.
-    
     service = RedmineCreateTasks::IssueRegistrationService.new(project: @project, user: User.current)
     result = service.register(tasks, defaults: defaults)
     render json: result.to_h
   end
 
   def data
-    render json: {
-      trackers: @project.trackers.select(:id, :name).map { |t| { id: t.id, name: t.name } },
-      users: @project.assignable_users.map { |u| { id: u.id, name: u.name } },
-      issue_statuses: IssueStatus.all.select(:id, :name, :is_closed).map { |s| { id: s.id, name: s.name, is_closed: s.is_closed } },
-      priorities: IssuePriority.active.select(:id, :name).map { |p| { id: p.id, name: p.name } },
-      categories: @project.issue_categories.select(:id, :name).map { |c| { id: c.id, name: c.name } }
-    }
+    render json: data_payload
   end
 
   private
+
+  def data_payload
+    {
+      trackers: @project.trackers.select(:id, :name).map { |tracker| serialize_named_record(tracker) },
+      users: @project.assignable_users.map { |user| serialize_named_record(user) },
+      issue_statuses: IssueStatus.all.select(:id, :name, :is_closed).map { |status| serialize_status(status) },
+      priorities: IssuePriority.active.select(:id, :name).map { |priority| serialize_named_record(priority) },
+      categories: @project.issue_categories.select(:id, :name).map { |category| serialize_named_record(category) }
+    }
+  end
+
+  def serialize_named_record(record)
+    { id: record.id, name: record.name }
+  end
+
+  def serialize_status(status)
+    serialize_named_record(status).merge(is_closed: status.is_closed)
+  end
 
   def ensure_logged_in
     return true if User.current.logged?

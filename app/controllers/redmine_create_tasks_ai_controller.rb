@@ -4,6 +4,13 @@ require 'uri'
 
 class RedmineCreateTasksAiController < ApplicationController
   class ConfigurationError < StandardError; end
+  VALID_PROVIDERS = %w[gemini azure-openai].freeze
+  AZURE_REQUIRED_ENV_VARS = %w[
+    AZURE_OPENAI_API_KEY
+    AZURE_OPENAI_ENDPOINT
+    AZURE_OPENAI_DEPLOYMENT
+  ].freeze
+
   layout 'base'
 
   before_action :find_project_by_project_id
@@ -28,15 +35,8 @@ class RedmineCreateTasksAiController < ApplicationController
     provider = params[:provider].to_s
     prompt = params[:prompt].to_s
 
-    unless provider.present? && prompt.present?
-      render json: { error: 'provider and prompt are required' }, status: :unprocessable_entity
-      return
-    end
-
-    unless valid_provider?(provider)
-      render json: { error: 'invalid provider' }, status: :unprocessable_entity
-      return
-    end
+    return render_unprocessable('provider and prompt are required') unless provider.present? && prompt.present?
+    return render_unprocessable('invalid provider') unless valid_provider?(provider)
 
     write_settings(provider, prompt)
     render json: { provider: ai_provider, prompt: ai_prompt }
@@ -44,29 +44,18 @@ class RedmineCreateTasksAiController < ApplicationController
 
   def extract
     topic = params[:topic].to_s.strip
-    if topic.empty?
-      render json: { error: 'topic is required' }, status: :unprocessable_entity
-      return
-    end
+    return render_unprocessable('topic is required') if topic.empty?
 
     provider = params[:provider].presence || ai_provider
     prompt = params[:prompt].presence || ai_prompt
 
-    unless valid_provider?(provider)
-      render json: { error: 'invalid provider' }, status: :unprocessable_entity
-      return
-    end
+    return render_unprocessable('invalid provider') unless valid_provider?(provider)
 
-    tasks = if Rails.env.test?
-      %w[task1 task2 task3]
-    else
-      validate_provider_config!(provider)
-      extract_tasks(provider, topic, prompt)
-    end
+    tasks = extract_tasks_for_environment(provider, topic, prompt)
     render json: { provider: provider, prompt: prompt, tasks: tasks }
   rescue ConfigurationError => e
     Rails.logger.warn "AI extraction configuration error: #{e.message}"
-    render json: { error: e.message }, status: :unprocessable_entity
+    render_unprocessable(e.message)
   rescue StandardError => e
     Rails.logger.error "AI extraction failed: #{e.message}"
     Rails.logger.error e.backtrace.join("\n")
@@ -74,6 +63,10 @@ class RedmineCreateTasksAiController < ApplicationController
   end
 
   private
+
+  def render_unprocessable(message)
+    render json: { error: message }, status: :unprocessable_entity
+  end
 
   def ai_provider
     (Setting[:plugin_redmine_create_tasks] || {})['ai_provider'] || 'gemini'
@@ -138,7 +131,14 @@ class RedmineCreateTasksAiController < ApplicationController
   end
 
   def valid_provider?(provider)
-    %w[gemini azure-openai].include?(provider)
+    VALID_PROVIDERS.include?(provider)
+  end
+
+  def extract_tasks_for_environment(provider, topic, prompt)
+    return %w[task1 task2 task3] if Rails.env.test?
+
+    validate_provider_config!(provider)
+    extract_tasks(provider, topic, prompt)
   end
 
   def extract_tasks(provider, topic, prompt)
@@ -151,10 +151,7 @@ class RedmineCreateTasksAiController < ApplicationController
       api_key = ENV['GEMINI_API_KEY'].to_s
       raise ConfigurationError, 'missing GEMINI_API_KEY' if api_key.empty?
     when 'azure-openai'
-      missing = []
-      missing << 'AZURE_OPENAI_API_KEY' if ENV['AZURE_OPENAI_API_KEY'].to_s.empty?
-      missing << 'AZURE_OPENAI_ENDPOINT' if ENV['AZURE_OPENAI_ENDPOINT'].to_s.empty?
-      missing << 'AZURE_OPENAI_DEPLOYMENT' if ENV['AZURE_OPENAI_DEPLOYMENT'].to_s.empty?
+      missing = AZURE_REQUIRED_ENV_VARS.select { |env_key| ENV[env_key].to_s.empty? }
       raise ConfigurationError, "missing #{missing.join(', ')}" if missing.any?
     end
   end
@@ -169,9 +166,7 @@ class RedmineCreateTasksAiController < ApplicationController
     }
 
     response = Net::HTTP.post(uri, JSON.dump(body), 'Content-Type' => 'application/json')
-    unless response.is_a?(Net::HTTPSuccess)
-      raise "gemini error: #{response.code} #{response.body}"
-    end
+    ensure_http_success!(response, 'gemini')
 
     payload = JSON.parse(response.body)
     text = payload.dig('candidates', 0, 'content', 'parts', 0, 'text')
@@ -202,13 +197,17 @@ class RedmineCreateTasksAiController < ApplicationController
     response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == 'https') do |http|
       http.request(request)
     end
-    unless response.is_a?(Net::HTTPSuccess)
-      raise "azure openai error: #{response.code} #{response.body}"
-    end
+    ensure_http_success!(response, 'azure openai')
 
     payload = JSON.parse(response.body)
     text = payload.dig('choices', 0, 'message', 'content')
     parse_tasks(text)
+  end
+
+  def ensure_http_success!(response, provider_label)
+    return if response.is_a?(Net::HTTPSuccess)
+
+    raise "#{provider_label} error: #{response.code} #{response.body}"
   end
 
   def build_prompt(topic, prompt)
@@ -223,7 +222,7 @@ class RedmineCreateTasksAiController < ApplicationController
     raw_text = text.to_s.strip
     Rails.logger.info "AI raw response: #{raw_text}"
 
-    # Remove markdown code block if present (```json ... ``` or ``` ... ```)
+    # Remove markdown code block if present.
     json_text = raw_text.gsub(/\A```(?:json)?\s*\n?/, '').gsub(/\n?```\s*\z/, '').strip
 
     data = JSON.parse(json_text)
