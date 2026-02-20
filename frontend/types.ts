@@ -68,4 +68,5 @@ export interface TaskRegistrationResult {
   success_sample_ids: number[];
   failures: TaskRegistrationFailure[];
   warnings: TaskRegistrationWarning[];
+  id_mapping?: Record<string, string>;
 }

@@ -155,7 +155,7 @@ module RedmineCreateTasks
 
     def save_issue(task, issue, issues_by_task, result)
       if issue.save
-        result.add_success(issue.id)
+        result.add_success(task[:id], issue.id)
         issues_by_task[task[:id]] = issue
       else
         result.add_failure(task[:id], issue.errors.full_messages.join(', '))

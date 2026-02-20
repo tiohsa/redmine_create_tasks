@@ -67,7 +67,15 @@ const RegistrationSettingsDialog: React.FC<RegistrationSettingsDialogProps> = ({
 
     useEffect(() => {
         if (open) {
-            setSettings(currentSettings);
+            let initialSettings = { ...currentSettings };
+            // 既存のIDが存在し、create_root_issue が明示的に true と指定されていない限り、既存を使用するデフォルトにする
+            if (initialSettings.existing_root_issue_id && initialSettings.create_root_issue !== true) {
+                initialSettings.create_root_issue = false;
+            } else if (initialSettings.create_root_issue === undefined) {
+                // まだどちらも選ばれていなければ新規作成をデフォルトにする
+                initialSettings.create_root_issue = true;
+            }
+            setSettings(initialSettings);
         }
     }, [open, currentSettings]);
 
@@ -135,8 +143,8 @@ const RegistrationSettingsDialog: React.FC<RegistrationSettingsDialogProps> = ({
                                     <input
                                         type="radio"
                                         name="root_handling"
-                                        className="mt-1 h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                        checked={settings.create_root_issue !== false}
+                                        className="mt-1 h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                        checked={settings.create_root_issue === true}
                                         onChange={() => handleChange('create_root_issue', true)}
                                     />
                                     <div>

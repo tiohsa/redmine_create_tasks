@@ -540,9 +540,21 @@ const App: React.FC = () => {
     };
     buildParentMap(data);
 
-    const nodes = flattenNodes(data).filter(node =>
-      registrationSettings.create_root_issue ? true : node.id !== 'root'
-    );
+    const nodes = flattenNodes(data).filter(node => {
+      // Root node handling
+      if (node.id === 'root') {
+        // If settings explicitly say do NOT create root issue, exclude it
+        if (registrationSettings.create_root_issue === false) {
+          return false;
+        }
+        return true;
+      }
+
+      // Existing node handling (for children or any non-root)
+      if (/^\d+$/.test(node.id)) return false;
+
+      return true;
+    });
 
     if (nodes.length === 0) {
       setRegisterError(t('redmine_create_tasks.app.register_no_tasks', 'No tasks to register.'));
@@ -574,20 +586,32 @@ const App: React.FC = () => {
           }
         }
 
+        // Map 'root' dependency to actual root ID if needed
+        let finalDeps = [...deps];
+        if (finalDeps.includes('root')) {
+          finalDeps = finalDeps.map(d => {
+            if (d === 'root') {
+              if (registrationSettings.create_root_issue) return 'root';
+              if (registrationSettings.existing_root_issue_id) return registrationSettings.existing_root_issue_id;
+              return undefined;
+            }
+            return d;
+          }).filter(Boolean) as string[];
+        }
+
+        // Ensure unique dependencies
+        const uniqueDeps = Array.from(new Set(finalDeps));
+
         if (isDependencyMode) {
-          // In dependency mode, convert parent-child relationships to dependencies
-          // Parent becomes a dependency (child depends on parent completing first)
-          const allDeps = [...deps];
-          if (parentId && !allDeps.includes(parentId)) {
-            allDeps.push(parentId);
-          }
+          // In dependency mode, parent-child relationships are already mapped to dependencies
+          // via buildDependencyMap. We don't manually push parentId to avoid circular dependency.
           return {
             id: node.id,
             subject: node.text,
             start_date: node.startDate,
             due_date: node.endDate,
             man_days: node.effort,
-            dependencies: allDeps.length > 0 ? allDeps : undefined,
+            dependencies: uniqueDeps.length > 0 ? uniqueDeps : undefined,
             // No parent_task_id in dependency mode
           };
         } else {
@@ -598,7 +622,7 @@ const App: React.FC = () => {
             start_date: node.startDate,
             due_date: node.endDate,
             man_days: node.effort,
-            dependencies: deps.length > 0 ? deps : undefined,
+            dependencies: uniqueDeps.length > 0 ? uniqueDeps : undefined,
             parent_task_id: parentId
           };
         }
@@ -606,6 +630,40 @@ const App: React.FC = () => {
 
       const finalPayload = { tasks: tasksPayload, defaults: registrationSettings };
       const result = await registerTasks(getProjectId(), finalPayload);
+
+      // Apply ID mapping to visual tree and connections if provided
+      if (result.id_mapping) {
+        const mapping = result.id_mapping;
+        const mapId = (id: string) => mapping[id] || id;
+
+        // 1. Update node tree and preserve "root" ID itself
+        const updateNodeTree = (node: MindMapNode): MindMapNode => ({
+          ...node,
+          id: node.id === 'root' ? 'root' : mapId(node.id),
+          children: node.children.map(updateNodeTree)
+        });
+
+        setData(prev => updateNodeTree(prev));
+
+        // 2. Update connections
+        setConnections(prev => prev.map(conn => ({
+          ...conn,
+          fromId: mapId(conn.fromId),
+          toId: mapId(conn.toId)
+        })));
+
+        // 3. Update registration settings if root was created
+        if (mapping['root'] && registrationSettings.create_root_issue !== false) {
+          const newSettings = {
+            ...registrationSettings,
+            create_root_issue: false,
+            existing_root_issue_id: mapping['root']
+          };
+          setRegistrationSettings(newSettings);
+          localStorage.setItem(`redmine_create_tasks_settings_${getProjectId()}`, JSON.stringify(newSettings));
+        }
+      }
+
       setRegisterResult(result);
     } catch (error) {
       setRegisterError(t('redmine_create_tasks.app.register_failed', 'Failed to register issues.'));
@@ -815,6 +873,14 @@ const App: React.FC = () => {
     setCriticalNodeIds(new Set());
     setCriticalConnIds(new Set());
     setHistory([]);
+
+    setRegistrationSettings(prev => {
+      const newSettings = { ...prev };
+      newSettings.create_root_issue = true;
+      delete newSettings.existing_root_issue_id;
+      localStorage.setItem(`redmine_create_tasks_settings_${getProjectId()}`, JSON.stringify(newSettings));
+      return newSettings;
+    });
   }, []);
 
   const handleDeletePage = useCallback((index: number) => {
@@ -868,6 +934,7 @@ const App: React.FC = () => {
           onDeleteConnection={handleDeleteConnection}
           onDetachNode={handleDetachNode}
           onMoveNode={handleMoveNode}
+          registrationSettings={registrationSettings}
         />
 
         <div className="absolute top-4 right-4 md:top-8 md:right-8 flex flex-col gap-4 items-end pointer-events-none">
@@ -1043,11 +1110,18 @@ const App: React.FC = () => {
                     <span> {t('redmine_create_tasks.common.none', 'None')}</span>
                   ) : (
                     <ul className="list-disc list-inside mt-1 space-y-1">
-                      {registerResult.failures.map((failure, index) => (
-                        <li key={`failure-${index}`}>
-                          {failure.task_id}: {failure.reason}
-                        </li>
-                      ))}
+                      {(() => {
+                        const getSubjectName = (taskId: string) => {
+                          const mappedId = registerResult.id_mapping?.[taskId] || taskId;
+                          const node = findNodeById(data, mappedId);
+                          return node ? (/^\d+$/.test(node.id) ? `#${node.id} ${node.text}` : node.text) : taskId;
+                        };
+                        return registerResult.failures.map((failure, index) => (
+                          <li key={`failure-${index}`}>
+                            {getSubjectName(failure.task_id)}: {failure.reason}
+                          </li>
+                        ));
+                      })()}
                     </ul>
                   )}
                 </div>
@@ -1057,11 +1131,18 @@ const App: React.FC = () => {
                     <span> {t('redmine_create_tasks.common.none', 'None')}</span>
                   ) : (
                     <ul className="list-disc list-inside mt-1 space-y-1">
-                      {registerResult.warnings.map((warning, index) => (
-                        <li key={`warning-${index}`}>
-                          {warning.task_id}: {warning.reason}
-                        </li>
-                      ))}
+                      {(() => {
+                        const getSubjectName = (taskId: string) => {
+                          const mappedId = registerResult.id_mapping?.[taskId] || taskId;
+                          const node = findNodeById(data, mappedId);
+                          return node ? (/^\d+$/.test(node.id) ? `#${node.id} ${node.text}` : node.text) : taskId;
+                        };
+                        return registerResult.warnings.map((warning, index) => (
+                          <li key={`warning-${index}`}>
+                            {getSubjectName(warning.task_id)}: {warning.reason}
+                          </li>
+                        ));
+                      })()}
                     </ul>
                   )}
                 </div>

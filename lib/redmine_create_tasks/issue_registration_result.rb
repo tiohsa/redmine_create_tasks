@@ -1,17 +1,19 @@
 module RedmineCreateTasks
   class IssueRegistrationResult
-    attr_reader :success_count, :success_sample_ids, :failures, :warnings
+    attr_reader :success_count, :success_sample_ids, :failures, :warnings, :id_mapping
 
     def initialize
       @success_count = 0
       @success_sample_ids = []
       @failures = []
       @warnings = []
+      @id_mapping = {}
     end
 
-    def add_success(issue_id)
+    def add_success(task_id, issue_id)
       @success_count += 1
       @success_sample_ids << issue_id if @success_sample_ids.length < 5
+      @id_mapping[task_id.to_s] = issue_id.to_s
     end
 
     def add_failure(task_id, reason)
@@ -27,7 +29,8 @@ module RedmineCreateTasks
         success_count: @success_count,
         success_sample_ids: @success_sample_ids,
         failures: @failures,
-        warnings: @warnings
+        warnings: @warnings,
+        id_mapping: @id_mapping
       }
     end
   end

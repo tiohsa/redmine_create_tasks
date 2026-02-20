@@ -24,6 +24,10 @@ interface Props {
   onDeleteConnection: (connId: string) => void;
   onDetachNode: (id: string) => void;
   onMoveNode: (childId: string, newParentId: string) => void;
+  registrationSettings?: {
+    create_root_issue?: boolean;
+    existing_root_issue_id?: string;
+  };
 }
 
 const addDays = (dateStr: string, days: number): string => {
@@ -106,7 +110,8 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
   onAddConnection,
   onDeleteConnection,
   onDetachNode,
-  onMoveNode
+  onMoveNode,
+  registrationSettings
 }, ref) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const zoomContainerRef = useRef<SVGGElement>(null);
@@ -277,11 +282,12 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                   className="cursor-pointer"
                   onMouseDown={(e) => {
                     e.stopPropagation();
+                    const targetTitle = /^\d+$/.test(target.id) ? `#${target.id} ${target.text}` : target.text;
                     if (window.confirm(
                       t(
                         'redmine_create_tasks.canvas.detach_confirm',
-                        'Detach connection to "%{title}"?\\n(The node will move under the root.)',
-                        { title: target.text }
+                        'Detach connection to "%{title}"?\n(The node will move under the root.)',
+                        { title: targetTitle }
                       )
                     )) {
                       onDetachNode(target.id);
@@ -504,7 +510,14 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                   <g className="pointer-events-none select-none">
 
                     {(() => {
-                      const lines = splitTextForDisplay(node.data.text);
+                      let displayText = node.data.text;
+                      if (isRoot && registrationSettings?.existing_root_issue_id && !registrationSettings.create_root_issue) {
+                        displayText = `#${registrationSettings.existing_root_issue_id} ${node.data.text}`;
+                      } else if (/^\d+$/.test(node.data.id)) {
+                        displayText = `#${node.data.id} ${node.data.text}`;
+                      }
+
+                      const lines = splitTextForDisplay(displayText);
                       const isMultiLine = lines.length > 1;
 
                       return (
