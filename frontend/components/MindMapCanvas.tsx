@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import * as d3 from 'd3';
+import { Calendar } from 'lucide-react';
 import { MindMapNode, Connection } from '../types';
 import { t } from '../i18n';
 
@@ -64,6 +65,7 @@ const splitTextForDisplay = (text: string): string[] => {
 
 const NODE_WIDTH = 200;
 const NODE_HEIGHT = 100;
+const EDIT_NODE_HEIGHT = 116;
 
 const buildTreeLayout = (data: MindMapNode) => {
   const treeLayout = d3.tree<MindMapNode>().nodeSize([120, 280]);
@@ -387,6 +389,7 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                     ${isHoveredTarget ? 'stroke-slate-500 stroke-[3px] scale-105' : ''}
                     ${isCritical && !isRoot ? 'stroke-orange-500 stroke-[3.5px] shadow-[0_0_20px_rgba(249,115,22,0.5)]' : ''}
                     shadow-sm
+                    ${isEditing ? 'opacity-0 pointer-events-none' : 'opacity-100'}
                   `}
                   data-node-drag="true"
                   onMouseDown={(e) => {
@@ -412,101 +415,168 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                   />
                 )}
 
-                {isEditing ? (
+                {isEditing && (
                   <foreignObject
-                    x={-NODE_WIDTH / 2 + 5}
-                    y={-NODE_HEIGHT / 2 + 12}
-                    width={NODE_WIDTH - 10}
-                    height={NODE_HEIGHT - 10}
+                    x={-NODE_WIDTH / 2}
+                    y={-EDIT_NODE_HEIGHT / 2 + 8}
+                    width={NODE_WIDTH}
+                    height={isRoot ? 40 : EDIT_NODE_HEIGHT}
+                    className="overflow-visible"
                   >
-                    <div className="flex flex-col gap-1.5 p-1 h-full bg-white rounded-lg">
-                      <input
-                        autoFocus
-                        placeholder={t('redmine_create_tasks.canvas.task_name_placeholder', 'Task name')}
-                        className="w-full text-sm font-bold border-b border-slate-100 outline-none bg-white text-slate-900"
-                        style={{ colorScheme: 'light' }}
-                        value={node.data.text}
-                        onChange={(e) => onUpdateNodeData(node.data.id, { text: e.target.value })}
-                        onClick={(e) => e.stopPropagation()}
-                      />
+                    <div className="flex flex-col w-full h-full bg-white rounded-xl shadow-md border-2 border-blue-500 relative">
                       {!isRoot && (
-                        <div className="flex gap-1 items-center">
-                          <input
-                            type="date"
-                            className="w-full text-xs text-slate-900 border-none outline-none bg-white cursor-pointer"
-                            style={{ colorScheme: 'light' }}
-                            value={node.data.startDate || ''}
-                            max={node.data.endDate || undefined}
-                            onChange={(e) => {
-                              const newStart = e.target.value;
-                              const currentEnd = node.data.endDate;
-                              const updates: any = { startDate: newStart };
-
-                              if (newStart && currentEnd && newStart > currentEnd) {
-                                updates.endDate = newStart;
-                                updates.effort = 1;
-                              } else if (newStart && currentEnd) {
-                                const newEffort = calculateEffort(newStart, currentEnd);
-                                if (newEffort > 0) updates.effort = newEffort;
-                              }
-                              onUpdateNodeData(node.data.id, updates);
-                            }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              (e.target as any).showPicker?.();
-                            }}
-                          />
+                        <div
+                          className="absolute top-[12px] w-3 h-3 bg-blue-500 rounded-full border-2 border-white shadow-sm flex items-center justify-center -translate-y-1/2"
+                          style={direction === 'left' ? { right: '-6px' } : { left: '-6px' }}
+                        >
+                          <div className="w-1 h-1 bg-white rounded-full" />
                         </div>
                       )}
-                      <div className="flex gap-1 items-center">
-                        <input
-                          type="date"
-                          className="w-full text-xs text-slate-900 border-none outline-none bg-white cursor-pointer"
-                          style={{ colorScheme: 'light' }}
-                          value={node.data.endDate || ''}
-                          min={node.data.startDate || undefined}
-                          onChange={(e) => {
-                            const newEnd = e.target.value;
-                            const currentStart = node.data.startDate;
-                            const updates: any = { endDate: newEnd };
 
-                            if (newEnd && currentStart && newEnd < currentStart) {
-                              updates.startDate = newEnd;
-                              updates.effort = 1;
-                            } else if (currentStart && newEnd) {
-                              const newEffort = calculateEffort(currentStart, newEnd);
-                              if (newEffort > 0) updates.effort = newEffort;
-                            }
-                            onUpdateNodeData(node.data.id, updates);
-                          }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            (e.target as any).showPicker?.();
-                          }}
+                      <div className={`px-2 py-1 ${!isRoot ? 'border-b border-slate-100' : ''}`}>
+                        <input
+                          autoFocus
+                          placeholder={t('redmine_create_tasks.canvas.task_name_placeholder', 'Task name')}
+                          className={`w-full text-xs font-bold outline-none bg-transparent ${isRoot ? 'text-center' : 'text-slate-900 ml-0.5'}`}
+                          style={{ colorScheme: 'light' }}
+                          value={node.data.text}
+                          onChange={(e) => onUpdateNodeData(node.data.id, { text: e.target.value })}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => e.stopPropagation()}
                         />
                       </div>
+
                       {!isRoot && (
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs text-slate-400">
-                            {t('redmine_create_tasks.canvas.effort_label', 'Effort:')}
-                          </span>
-                          <input
-                            type="number"
-                            min="0"
-                            className="w-14 text-xs border-none outline-none bg-white text-slate-900 rounded px-1"
-                            style={{ colorScheme: 'light' }}
-                            value={node.data.effort || 0}
-                            onChange={(e) => {
-                              const value = parseFloat(e.target.value);
-                              onUpdateNodeData(node.data.id, { effort: Math.max(0, value || 0) });
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                          />
+                        <div className="px-2.5 py-1 flex flex-col gap-0.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-slate-400 w-8">
+                              {t('redmine_create_tasks.canvas.start_date_label', '開始')}
+                            </span>
+                            <div className="flex items-center justify-end relative flex-1">
+                              <input
+                                type="date"
+                                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                value={node.data.startDate || ''}
+                                max={node.data.endDate || undefined}
+                                onChange={(e) => {
+                                  const newStart = e.target.value;
+                                  const currentEnd = node.data.endDate;
+                                  const updates: any = { startDate: newStart };
+
+                                  if (newStart && currentEnd && newStart > currentEnd) {
+                                    updates.endDate = newStart;
+                                    updates.effort = 1;
+                                  } else if (newStart && currentEnd) {
+                                    const newEffort = calculateEffort(newStart, currentEnd);
+                                    if (newEffort > 0) updates.effort = newEffort;
+                                  }
+                                  onUpdateNodeData(node.data.id, updates);
+                                }}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <span className="text-[10px] font-medium text-slate-700 mr-1.5 pointer-events-none">
+                                {node.data.startDate ? node.data.startDate.replace(/-/g, '/') : t('redmine_create_tasks.canvas.date_unknown', '未設定')}
+                              </span>
+                              <Calendar className="w-3 h-3 text-slate-300 pointer-events-none" />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-slate-400 w-8">
+                              {t('redmine_create_tasks.canvas.end_date_label', '期限')}
+                            </span>
+                            <div className="flex items-center justify-end relative flex-1">
+                              <input
+                                type="date"
+                                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                value={node.data.endDate || ''}
+                                min={node.data.startDate || undefined}
+                                onChange={(e) => {
+                                  const newEnd = e.target.value;
+                                  const currentStart = node.data.startDate;
+                                  const updates: any = { endDate: newEnd };
+
+                                  if (newEnd && currentStart && newEnd < currentStart) {
+                                    updates.startDate = newEnd;
+                                    updates.effort = 1;
+                                  } else if (currentStart && newEnd) {
+                                    const newEffort = calculateEffort(currentStart, newEnd);
+                                    if (newEffort > 0) updates.effort = newEffort;
+                                  }
+                                  onUpdateNodeData(node.data.id, updates);
+                                }}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <span className="text-[10px] font-medium text-slate-700 mr-1.5 pointer-events-none">
+                                {node.data.endDate ? node.data.endDate.replace(/-/g, '/') : t('redmine_create_tasks.canvas.date_unknown', '未設定')}
+                              </span>
+                              <Calendar className="w-3 h-3 text-slate-300 pointer-events-none" />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between mt-1">
+                            <span className="text-[10px] font-bold text-slate-400 w-8">
+                              {t('redmine_create_tasks.canvas.effort_label', '工数')}
+                            </span>
+                            <div
+                              className="flex items-center border border-slate-300 rounded-md bg-white overflow-hidden shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                type="button"
+                                className="flex items-center justify-center w-5 h-5 hover:bg-slate-50 active:bg-slate-100 text-slate-500 hover:text-slate-700 font-semibold"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const current = Math.max(0, Math.trunc(node.data.effort || 0));
+                                  onUpdateNodeData(node.data.id, { effort: Math.max(0, current - 1) });
+                                }}
+                              >
+                                <span className="text-[10px] leading-none">-</span>
+                              </button>
+                              <div className="w-px h-4 bg-slate-200" />
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                className="w-6 h-5 text-center px-0 text-[10px] font-bold text-slate-800 outline-none"
+                                value={String(Math.max(0, Math.trunc(node.data.effort || 0)))}
+                                onChange={(e) => {
+                                  const raw = e.target.value.trim();
+                                  if (raw === '') {
+                                    onUpdateNodeData(node.data.id, { effort: 0 });
+                                    return;
+                                  }
+                                  if (!/^\d+$/.test(raw)) return;
+                                  onUpdateNodeData(node.data.id, { effort: Math.max(0, parseInt(raw, 10) || 0) });
+                                }}
+                              />
+                              <div className="w-px h-4 bg-slate-200" />
+                              <button
+                                type="button"
+                                className="flex items-center justify-center w-5 h-5 hover:bg-slate-50 active:bg-slate-100 text-slate-500 hover:text-slate-700 font-semibold"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const current = Math.max(0, Math.trunc(node.data.effort || 0));
+                                  onUpdateNodeData(node.data.id, { effort: current + 1 });
+                                }}
+                              >
+                                <span className="text-[10px] leading-none">+</span>
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
                   </foreignObject>
-                ) : (
+                )}
+
+                {!isEditing && (
                   <g className="pointer-events-none select-none">
 
                     {(() => {
