@@ -123,6 +123,7 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
   const [dragSourceId, setDragSourceId] = useState<string | null>(null);
   const [dragMode, setDragMode] = useState<'connection' | 'move' | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
 
   const { nodes, links } = useMemo(() => buildTreeLayout(data), [data]);
@@ -347,8 +348,16 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
           )}
 
           {dragSourceId && dragMode === 'move' && (
-            <g className="pointer-events-none opacity-50" transform={`translate(${mousePos.x - NODE_WIDTH / 2}, ${mousePos.y - NODE_HEIGHT / 2})`}>
-              <rect width={NODE_WIDTH} height={NODE_HEIGHT} rx="12" className="fill-slate-100 stroke-slate-400 stroke-2 border-dashed" />
+            <g className="pointer-events-none opacity-50" transform={`translate(${mousePos.x - dragOffset.x}, ${mousePos.y - dragOffset.y})`}>
+              <rect
+                x={-NODE_WIDTH / 2}
+                y={-NODE_HEIGHT / 2 + 10}
+                width={NODE_WIDTH}
+                height={NODE_HEIGHT}
+                rx="12"
+                className="fill-slate-100 stroke-slate-400 stroke-2"
+                strokeDasharray="6 4"
+              />
             </g>
           )}
 
@@ -401,6 +410,7 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                     setDragMode('move');
                     const pt = d3.pointer(e, zoomContainerRef.current);
                     setMousePos({ x: pt[0], y: pt[1] });
+                    setDragOffset({ x: pt[0] - node.y, y: pt[1] - node.x });
                   }}
                 />
 
