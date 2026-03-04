@@ -2,6 +2,7 @@
   <%= javascript_include_tag 'gantt_drag_drop', :plugin => 'my_gantt_plugin' %>
   <%= stylesheet_link_tag 'gantt_drag_drop', :plugin => 'my_gantt_plugin' %>
   <script>
-    window.redmineApiKey = '<%= User.current.api_key %>';
+    window.RedmineCreateTasks = window.RedmineCreateTasks || {};
+    window.RedmineCreateTasks.apiKey = '<%= User.current.api_key %>';
   </script>
 <% end %>

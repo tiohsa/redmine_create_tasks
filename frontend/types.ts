@@ -16,6 +16,7 @@ declare global {
     RedmineCreateTasks: {
       rootUrl: string;
       projectIdentifier: string;
+      apiKey?: string;
     };
     createTasksI18n: any;
     createTasksI18nFallback: any;

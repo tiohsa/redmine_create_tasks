@@ -58,6 +58,17 @@ $(function() {
     return [year, month, day].join('-');
   }
 
+  function buildAuthHeaders(csrfToken) {
+    var headers = {
+      'X-CSRF-Token': csrfToken
+    };
+    var apiKey = window.RedmineCreateTasks && window.RedmineCreateTasks.apiKey;
+    if (apiKey) {
+      headers['X-Redmine-API-Key'] = apiKey;
+    }
+    return headers;
+  }
+
   function updateIssue(issueId, dayShift, durationChange) {
     if (!issueId) return;
 
@@ -99,10 +110,7 @@ $(function() {
           xhrFields: {
             withCredentials: true
           },
-          headers: {
-            'X-CSRF-Token': csrfToken,
-            'X-Redmine-API-Key': window.redmineApiKey
-          },
+          headers: buildAuthHeaders(csrfToken),
           success: function() {
             console.log('Issue ' + issueId + ' updated.');
             // Reload to refresh the Gantt chart
@@ -145,10 +153,7 @@ $(function() {
       xhrFields: {
         withCredentials: true
       },
-      headers: {
-        'X-CSRF-Token': csrfToken,
-        'X-Redmine-API-Key': window.redmineApiKey
-      },
+      headers: buildAuthHeaders(csrfToken),
       success: function() {
         console.log('Dependency created between ' + sourceId + ' and ' + targetId);
         location.reload();
@@ -280,10 +285,7 @@ $(function() {
       xhrFields: {
         withCredentials: true
       },
-      headers: {
-        'X-CSRF-Token': csrfToken,
-        'X-Redmine-API-Key': window.redmineApiKey
-      },
+      headers: buildAuthHeaders(csrfToken),
       success: function() {
         console.log('Relation ' + relationId + ' deleted.');
         location.reload();
@@ -333,9 +335,7 @@ $(function() {
     $.ajax({
       url: '/issues/' + issueId + '.json?include=relations',
       type: 'GET',
-      headers: {
-          'X-Redmine-API-Key': window.redmineApiKey
-      },
+      headers: buildAuthHeaders($('meta[name="csrf-token"]').attr('content')),
       success: function(data) {
         showContextMenu(e.pageX, e.pageY, data.issue.relations, issueId);
       },
