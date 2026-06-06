@@ -11,7 +11,7 @@ module RedmineCreateTasks
       @user = user
     end
 
-    def register(tasks, defaults: nil)
+    def register(tasks, defaults: nil, **_ignored_options)
       result = IssueRegistrationResult.new
       task_list = normalize_tasks(tasks)
       return result if task_list.empty?
@@ -27,7 +27,7 @@ module RedmineCreateTasks
       issues_by_task = create_issues(task_list, tracker, resolved_defaults, result, tracker_warning)
 
       apply_dependencies(task_list, issues_by_task, result)
-      apply_hierarchy(task_list, issues_by_task, result) unless dependency_mode?(defaults)
+      apply_hierarchy(task_list, issues_by_task, result)
       result
     end
 
@@ -36,10 +36,6 @@ module RedmineCreateTasks
     def add_failures_for_all_tasks(task_list, result, reason)
       task_list.each { |task| result.add_failure(task[:id], reason) }
       result
-    end
-
-    def dependency_mode?(defaults)
-      defaults[:relation_mode]&.to_s == 'dependency'
     end
 
     def normalize_defaults(defaults)

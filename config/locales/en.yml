@@ -95,11 +95,6 @@ en:
       load: Load
       load_error: Details not found.
       cannot_use_closed: Closed Ticket
-      relation_mode_label: Relation Mode
-      relation_mode_child: Register as child tickets
-      relation_mode_child_desc: Registers mind map hierarchy as Redmine parent-child tickets
-      relation_mode_dependency: Register as dependencies
-      relation_mode_dependency_desc: Registers mind map hierarchy as Redmine precedes/follows relations
       close: Close
       cancel: Cancel
       save: Save
@@ -146,4 +141,3 @@ en:
       rename_page: Rename Page
       page_count: "%{current} / %{total}"
       cannot_delete_last: Cannot delete the last page
-

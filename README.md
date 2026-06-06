@@ -10,6 +10,13 @@ Create Tasks is a Redmine plugin that helps break down a final deliverable into 
 - Issue registration with configurable defaults
 - Multi-page planning, undo, and JSON export
 
+## Relationship Model
+
+- Use the left-side plus handle to add a dependency predecessor. Registering issues creates a Redmine `precedes` relation from the predecessor to the target task.
+- Drag an existing node onto another node's left-side plus handle to create a dependency.
+- Drag an existing node onto another node's bottom plus handle to make it a child issue.
+- Dependencies and parent-child hierarchy are registered together. There is no global relation mode switch.
+
 ![alt text](./images/redmine_create_tasks.png)
 
 ## Requirements

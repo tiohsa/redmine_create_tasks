@@ -67,34 +67,50 @@ const NODE_WIDTH = 200;
 const NODE_HEIGHT = 100;
 const EDIT_NODE_HEIGHT = 116;
 
-const buildTreeLayout = (data: MindMapNode) => {
-  const treeLayout = d3.tree<MindMapNode>().nodeSize([120, 280]);
+const buildTreeLayout = (data: MindMapNode, connections: Connection[]) => {
+  const treeLayout = d3.tree<MindMapNode>().nodeSize([240, 170]);
+  const root = treeLayout(d3.hierarchy(data));
+  const nodes = root.descendants();
+  const nodeMap = new Map(nodes.map(node => [node.data.id, node]));
 
-  const rightChildren = data.children.filter(c => c.direction !== 'left');
-  const rightHierarchy = d3.hierarchy({ ...data, children: rightChildren });
-  const rightRoot = treeLayout(rightHierarchy);
-  const rightNodes = rightRoot.descendants();
-  const rightLinks = rightRoot.links();
+  nodes.forEach(node => {
+    const horizontal = node.x;
+    node.x = node.y;
+    node.y = horizontal;
+  });
 
-  const leftChildren = data.children.filter(c => c.direction === 'left');
-  let leftNodes: d3.HierarchyPointNode<MindMapNode>[] = [];
-  let leftLinks: d3.HierarchyPointLink<MindMapNode>[] = [];
+  const dependencyGroups = new Map<string, d3.HierarchyPointNode<MindMapNode>[]>();
+  const dependencyFromIds = new Set<string>();
+  connections.forEach(conn => {
+    if ((conn.type ?? 'dependency') !== 'dependency') return;
+    const from = nodeMap.get(conn.fromId);
+    const to = nodeMap.get(conn.toId);
+    if (!from || !to || from.data.id === 'root') return;
+    dependencyFromIds.add(from.data.id);
+    dependencyGroups.set(conn.toId, [...(dependencyGroups.get(conn.toId) ?? []), from]);
+  });
 
-  if (leftChildren.length > 0) {
-    const leftHierarchy = d3.hierarchy({ ...data, children: leftChildren });
-    const leftRoot = treeLayout(leftHierarchy);
-    leftNodes = leftRoot.descendants();
-    leftLinks = leftRoot.links();
+  dependencyGroups.forEach((predecessors, targetId) => {
+    const target = nodeMap.get(targetId);
+    if (!target) return;
+    const midpoint = (predecessors.length - 1) / 2;
 
-    leftNodes.forEach(d => {
-      if (d.data.id !== 'root') d.y = -d.y;
+    predecessors.forEach((predecessor, index) => {
+      const nextX = target.x + (index - midpoint) * 130;
+      const nextY = target.y - 300;
+      const deltaX = nextX - predecessor.x;
+      const deltaY = nextY - predecessor.y;
+
+      predecessor.descendants().forEach(descendant => {
+        descendant.x += deltaX;
+        descendant.y += deltaY;
+      });
     });
-  }
+  });
 
-  const combinedNodes = [...rightNodes, ...leftNodes.filter(d => d.data.id !== 'root')];
-  const combinedLinks = [...rightLinks, ...leftLinks];
+  const links = root.links().filter(link => !dependencyFromIds.has(link.target.data.id));
 
-  return { nodes: combinedNodes, links: combinedLinks };
+  return { nodes, links };
 };
 
 const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
@@ -125,8 +141,9 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [hoveredHandle, setHoveredHandle] = useState<'leftDependency' | 'bottomChild' | null>(null);
 
-  const { nodes, links } = useMemo(() => buildTreeLayout(data), [data]);
+  const { nodes, links } = useMemo(() => buildTreeLayout(data, connections), [data, connections]);
 
   useEffect(() => {
     if (!svgRef.current || !zoomContainerRef.current) return;
@@ -229,15 +246,16 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
 
   const handleMouseUp = (e: React.MouseEvent) => {
     if (dragSourceId && hoveredNodeId && dragSourceId !== hoveredNodeId) {
-      if (dragMode === 'connection') {
+      if (dragMode === 'move' && hoveredHandle === 'leftDependency') {
         onAddConnection(dragSourceId, hoveredNodeId);
-      } else if (dragMode === 'move') {
+      } else if (dragMode === 'move' && hoveredHandle === 'bottomChild') {
         onMoveNode(dragSourceId, hoveredNodeId);
       }
     }
     setDragSourceId(null);
     setDragMode(null);
     setHoveredNodeId(null);
+    setHoveredHandle(null);
   };
 
   const getNodePos = (id: string) => {
@@ -257,12 +275,25 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
           onSetEditingId(null);
         }}
       >
+        <defs>
+          <marker
+            id="dependency-arrow"
+            markerWidth="8"
+            markerHeight="8"
+            refX="7"
+            refY="4"
+            orient="auto"
+            markerUnits="strokeWidth"
+          >
+            <path d="M 0 0 L 8 4 L 0 8 z" className="fill-sky-600" />
+          </marker>
+        </defs>
         <g ref={zoomContainerRef} className="zoom-container">
           {/* Hierarchy Links */}
           {links.map((link) => {
-            const pathGen = d3.linkHorizontal<any, any>()
-              .x((d: any) => d.y)
-              .y((d: any) => d.x);
+              const pathGen = d3.linkVertical<any, any>()
+                .x((d: any) => d.y)
+                .y((d: any) => d.x);
 
             const source = link.source.data;
             const target = link.target.data;
@@ -333,6 +364,8 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                 {/* 実際に表示される線 */}
                 <path
                   d={path}
+                  markerEnd="url(#dependency-arrow)"
+                  strokeDasharray="8 6"
                   className={`custom-connector transition-all duration-300 pointer-events-none stroke-[3px] group-hover/conn:stroke-rose-500 group-hover/conn:stroke-[4px] ${isCritical ? 'stroke-orange-500 stroke-[4.5px] opacity-100 shadow-[0_0_10px_orange]' : 'stroke-slate-900 opacity-100'}`}
                 />
               </g>
@@ -371,9 +404,10 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
             const direction = node.data.direction;
 
             return (
-              <g
-                key={node.data.id}
-                transform={`translate(${node.y}, ${node.x})`}
+                  <g
+                    key={node.data.id}
+                    data-testid={`mindmap-node-${node.data.id}`}
+                    transform={`translate(${node.y}, ${node.x})`}
                 className="mindmap-node cursor-pointer group"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -383,8 +417,6 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                   e.stopPropagation();
                   onSetEditingId(node.data.id);
                 }}
-                onMouseEnter={() => dragSourceId && dragSourceId !== node.data.id && setHoveredNodeId(node.data.id)}
-                onMouseLeave={() => setHoveredNodeId(null)}
               >
                 <rect
                   x={-NODE_WIDTH / 2}
@@ -401,6 +433,7 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                     ${isEditing ? 'opacity-0 pointer-events-none' : 'opacity-100'}
                   `}
                   data-node-drag="true"
+                  data-testid={`node-drag-${node.data.id}`}
                   onMouseDown={(e) => {
                     e.stopPropagation();
                     e.preventDefault();
@@ -677,41 +710,28 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                   <circle
                     r="15"
                     fill="transparent"
-                    className="cursor-crosshair"
+                    className="cursor-pointer"
                     data-handle="true"
-                    onMouseDown={(e) => {
+                    data-testid={`bottom-child-handle-${node.data.id}`}
+                    onMouseEnter={() => {
+                      if (dragSourceId && dragSourceId !== node.data.id) {
+                        setHoveredNodeId(node.data.id);
+                        setHoveredHandle('bottomChild');
+                      }
+                    }}
+                    onMouseLeave={() => {
+                      setHoveredNodeId(null);
+                      setHoveredHandle(null);
+                    }}
+                    onClick={(e) => {
                       e.stopPropagation();
-                      e.preventDefault();
-                      if (!zoomContainerRef.current) return;
-                      const pt = d3.pointer(e, zoomContainerRef.current);
-                      setDragSourceId(node.data.id);
-                      setDragMode('connection');
-                      setMousePos({ x: pt[0], y: pt[1] });
+                      onAddNode(node.data.id);
                     }}
                   />
                 </g>
 
                 <g className={`transition-opacity duration-200 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                  {(isRoot || direction === 'right') && (
-                    <g transform={`translate(${NODE_WIDTH / 2 + 5}, 0)`} className="group/btn">
-                      <g className="transition-transform duration-200 group-hover/btn:scale-125 pointer-events-none" style={{ transformBox: 'fill-box', transformOrigin: 'center' }}>
-                        <circle r="10" className="fill-blue-500 stroke-white stroke-2 shadow-md" />
-                        <line x1="-4" y1="0" x2="4" y2="0" stroke="white" strokeWidth="2" strokeLinecap="round" />
-                        <line x1="0" y1="-4" x2="0" y2="4" stroke="white" strokeWidth="2" strokeLinecap="round" />
-                      </g>
-                      <circle
-                        r="20"
-                        fill="transparent"
-                        className="cursor-pointer"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onAddNode(node.data.id, 'right');
-                        }}
-                      />
-                    </g>
-                  )}
-
-                  {(isRoot || direction === 'left') && (
+                  {(
                     <g transform={`translate(${-NODE_WIDTH / 2 - 5}, 0)`} className="group/btn">
                       <g className="transition-transform duration-200 group-hover/btn:scale-125 pointer-events-none" style={{ transformBox: 'fill-box', transformOrigin: 'center' }}>
                         <circle r="10" className="fill-blue-500 stroke-white stroke-2 shadow-md" />
@@ -722,6 +742,17 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                         r="20"
                         fill="transparent"
                         className="cursor-pointer"
+                        data-testid={`left-dependency-handle-${node.data.id}`}
+                        onMouseEnter={() => {
+                          if (dragSourceId && dragSourceId !== node.data.id) {
+                            setHoveredNodeId(node.data.id);
+                            setHoveredHandle('leftDependency');
+                          }
+                        }}
+                        onMouseLeave={() => {
+                          setHoveredNodeId(null);
+                          setHoveredHandle(null);
+                        }}
                         onClick={(e) => {
                           e.stopPropagation();
                           onAddNode(node.data.id, 'left');

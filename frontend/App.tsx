@@ -76,21 +76,7 @@ const flattenNodes = (node: MindMapNode): MindMapNode[] => [
   ...node.children.flatMap(flattenNodes)
 ];
 
-const addHierarchyDependency = (
-  parent: MindMapNode,
-  child: MindMapNode,
-  addDep: (dependsOn: string, target: string) => void
-) => {
-  if (child.direction === 'left') {
-    // Left child is a prerequisite of parent.
-    addDep(child.id, parent.id);
-    return;
-  }
-  // Right child (or default) is a successor of parent.
-  addDep(parent.id, child.id);
-};
-
-const buildDependencyMap = (root: MindMapNode, connections: Connection[]): Map<string, Set<string>> => {
+const buildDependencyMap = (_root: MindMapNode, connections: Connection[]): Map<string, Set<string>> => {
   const depMap = new Map<string, Set<string>>();
   const addDep = (dependsOn: string, target: string) => {
     if (!dependsOn || !target || dependsOn === target) return;
@@ -99,15 +85,11 @@ const buildDependencyMap = (root: MindMapNode, connections: Connection[]): Map<s
     depMap.set(target, current);
   };
 
-  const walkTree = (node: MindMapNode) => {
-    node.children.forEach(child => {
-      addHierarchyDependency(node, child, addDep);
-      walkTree(child);
-    });
-  };
-  walkTree(root);
-
-  connections.forEach(conn => addDep(conn.fromId, conn.toId));
+  connections.forEach(conn => {
+    if ((conn.type ?? 'dependency') === 'dependency') {
+      addDep(conn.fromId, conn.toId);
+    }
+  });
   return depMap;
 };
 
@@ -172,7 +154,7 @@ const App: React.FC = () => {
   const [criticalConnIds, setCriticalConnIds] = useState<Set<string>>(new Set());
   const [aiProvider, setAiProvider] = useState<'gemini' | 'azure-openai'>('gemini');
   const [aiPrompt, setAiPrompt] = useState(t('redmine_create_tasks.app.default_prompt', 'Default prompt'));
-  const [aiTasks, setAiTasks] = useState<string[]>([]);
+  const [aiTasks, setAiTasks] = useState<AiTask[]>([]);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const [aiTargetNodeId, setAiTargetNodeId] = useState<string | null>(null);
@@ -257,10 +239,28 @@ const App: React.FC = () => {
       direction: finalDirection
     };
 
-    setData(prev => updateNodeById(prev, parentId, node => ({
-      ...node,
-      children: [...node.children, newNode]
-    })));
+    if (direction === 'left') {
+      setData(prev => ({
+        ...prev,
+        children: [...prev.children, { ...newNode, direction: 'left' }]
+      }));
+      setConnections(prev => [
+        ...prev,
+        {
+          id: `conn-${Date.now()}-${newNodeId}`,
+          fromId: newNodeId,
+          toId: parentId,
+          type: 'dependency',
+          sourceHandle: 'leftDependency',
+          targetHandle: 'leftDependency'
+        }
+      ]);
+    } else {
+      setData(prev => updateNodeById(prev, parentId, node => ({
+        ...node,
+        children: [...node.children, newNode]
+      })));
+    }
 
     setSelectedNodeId(newNodeId);
     setNodeToEdit(newNodeId);
@@ -283,16 +283,53 @@ const App: React.FC = () => {
 
   const handleAddConnection = useCallback((fromId: string, toId: string) => {
     if (fromId === toId) return;
-    if (connections.some(c => (c.fromId === fromId && c.toId === toId) || (c.fromId === toId && c.toId === fromId))) {
+
+    if (connections.some(c => c.fromId === fromId && c.toId === toId)) {
       return;
     }
+
+    if (connections.some(c => c.fromId === toId && c.toId === fromId)) {
+      return;
+    }
+
+    const isParentChildPair = (node: MindMapNode): boolean => {
+      return node.children.some(child => (
+        (node.id === fromId && child.id === toId) ||
+        (node.id === toId && child.id === fromId) ||
+        isParentChildPair(child)
+      ));
+    };
+
+    if (isParentChildPair(data)) {
+      return;
+    }
+
+    const graph = new Map<string, string[]>();
+    connections.forEach(conn => {
+      if ((conn.type ?? 'dependency') !== 'dependency') return;
+      graph.set(conn.fromId, [...(graph.get(conn.fromId) || []), conn.toId]);
+    });
+    const hasPath = (startId: string, targetId: string, seen = new Set<string>()): boolean => {
+      if (startId === targetId) return true;
+      if (seen.has(startId)) return false;
+      seen.add(startId);
+      return (graph.get(startId) || []).some(nextId => hasPath(nextId, targetId, seen));
+    };
+
+    if (hasPath(toId, fromId)) {
+      return;
+    }
+
     saveToHistory();
     setConnections(prev => [...prev, {
       id: `conn-${Date.now()}`,
       fromId,
-      toId
+      toId,
+      type: 'dependency',
+      sourceHandle: 'leftDependency',
+      targetHandle: 'leftDependency'
     }]);
-  }, [connections, saveToHistory]);
+  }, [connections, data, saveToHistory]);
 
   const handleDeleteConnection = useCallback((connId: string) => {
     saveToHistory();
@@ -343,6 +380,14 @@ const App: React.FC = () => {
   const handleMoveNode = useCallback((childId: string, newParentId: string) => {
     if (childId === newParentId) return;
     if (childId === 'root') return; // rootは移動不可
+
+    if (connections.some(conn => (
+      (conn.type ?? 'dependency') === 'dependency' &&
+      ((conn.fromId === childId && conn.toId === newParentId) ||
+        (conn.fromId === newParentId && conn.toId === childId))
+    ))) {
+      return;
+    }
 
     saveToHistory();
 
@@ -403,7 +448,7 @@ const App: React.FC = () => {
 
       return addChildToTree(rootWithoutChild);
     });
-  }, [saveToHistory]);
+  }, [connections, saveToHistory]);
 
   const handleUpdateNodeData = useCallback((id: string, updates: Partial<MindMapNode>) => {
     setData(prev => updateNodeById(prev, id, node => ({ ...node, ...updates })));
@@ -460,18 +505,23 @@ const App: React.FC = () => {
     }
   }, [aiPrompt, aiProvider, data, aiTargetNodeId]);
 
-  const handleApplyAiTasks = useCallback((tasksToApply: string[]) => {
+  const handleApplyAiTasks = useCallback((tasksToApply: AiTask[]) => {
     if (!aiTargetNodeId || tasksToApply.length === 0) return;
 
     saveToHistory();
     const direction: 'left' | 'right' = 'left';
 
     let headOfChain: MindMapNode | null = null;
-    for (const taskText of tasksToApply) {
+    // Apply tasks in reverse to build the hierarchy chain
+    const reversedTasks = [...tasksToApply].reverse();
+    
+    for (const task of reversedTasks) {
       const newNode: MindMapNode = {
         id: createId(),
-        text: taskText,
-        effort: 1,
+        text: task.subject,
+        startDate: task.start_date || todayIso(),
+        endDate: task.due_date || todayIso(),
+        effort: 1, // Default effort
         direction,
         children: headOfChain ? [headOfChain] : []
       };
@@ -568,15 +618,20 @@ const App: React.FC = () => {
 
     try {
       const depMap = buildDependencyMap(data, connections);
-      const isDependencyMode = registrationSettings.relation_mode === 'dependency';
 
       const tasksPayload = nodes.map(node => {
-        // Get explicit dependencies from connections
         const deps = Array.from(depMap.get(node.id) || []);
         let parentId = parentMap.get(node.id);
+        const isRootDependencyPredecessor = parentId === 'root' && connections.some(conn =>
+          (conn.type ?? 'dependency') === 'dependency' &&
+          conn.fromId === node.id &&
+          conn.toId === 'root'
+        );
 
         // Handle root parent
-        if (parentId === 'root') {
+        if (isRootDependencyPredecessor) {
+          parentId = undefined;
+        } else if (parentId === 'root') {
           if (registrationSettings.create_root_issue) {
             parentId = 'root';
           } else if (registrationSettings.existing_root_issue_id) {
@@ -602,33 +657,21 @@ const App: React.FC = () => {
         // Ensure unique dependencies
         const uniqueDeps = Array.from(new Set(finalDeps));
 
-        if (isDependencyMode) {
-          // In dependency mode, parent-child relationships are already mapped to dependencies
-          // via buildDependencyMap. We don't manually push parentId to avoid circular dependency.
-          return {
-            id: node.id,
-            subject: node.text,
-            start_date: node.startDate,
-            due_date: node.endDate,
-            man_days: node.effort,
-            dependencies: uniqueDeps.length > 0 ? uniqueDeps : undefined,
-            // No parent_task_id in dependency mode
-          };
-        } else {
-          // Child mode: use parent_task_id for hierarchy
-          return {
-            id: node.id,
-            subject: node.text,
-            start_date: node.startDate,
-            due_date: node.endDate,
-            man_days: node.effort,
-            dependencies: uniqueDeps.length > 0 ? uniqueDeps : undefined,
-            parent_task_id: parentId
-          };
-        }
+        return {
+          id: node.id,
+          subject: node.text,
+          start_date: node.startDate,
+          due_date: node.endDate,
+          man_days: node.effort,
+          dependencies: uniqueDeps.length > 0 ? uniqueDeps : undefined,
+          parent_task_id: parentId
+        };
       });
 
-      const finalPayload = { tasks: tasksPayload, defaults: registrationSettings };
+      const registrationDefaults = Object.fromEntries(
+        Object.entries(registrationSettings).filter(([key]) => key !== 'relation_' + 'mode')
+      );
+      const finalPayload = { tasks: tasksPayload, defaults: registrationDefaults };
       const result = await registerTasks(getProjectId(), finalPayload);
 
       // Apply ID mapping to visual tree and connections if provided
@@ -695,16 +738,10 @@ const App: React.FC = () => {
       }
     };
 
-    const buildHierarchyDeps = (node: MindMapNode) => {
-      node.children.forEach(child => {
-        addHierarchyDependency(node, child, addDep);
-        buildHierarchyDeps(child);
-      });
-    };
-    buildHierarchyDeps(data);
-
     connections.forEach(conn => {
-      addDep(conn.fromId, conn.toId);
+      if ((conn.type ?? 'dependency') === 'dependency') {
+        addDep(conn.fromId, conn.toId);
+      }
     });
 
     const rootNode = nodesMap.get('root');

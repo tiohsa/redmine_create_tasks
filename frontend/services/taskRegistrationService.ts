@@ -9,7 +9,6 @@ interface RegisterPayload {
     status_id?: string;
     priority_id?: string;
     category_id?: string;
-    relation_mode?: 'child' | 'dependency';
   };
 }
 

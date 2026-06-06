@@ -1,15 +1,16 @@
+import { AiTask } from '../types';
 import { getApiHeaders } from './apiUtils';
 import { getApiUrl, getProjectIdentifier } from '../utils/url';
 
 type AiExtractResponse = {
-  tasks: string[];
+  tasks: AiTask[];
 };
 
 
 export const expandNodeWithAI = async (
   topic: string,
   promptOverride?: string
-): Promise<string[]> => {
+): Promise<AiTask[]> => {
   const response = await fetch(getApiUrl(`projects/${getProjectIdentifier()}/redmine_create_tasks/ai/extract`), {
     method: 'POST',
     headers: getApiHeaders(),
