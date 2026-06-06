@@ -92,6 +92,28 @@ test('left plus click creates a dependency predecessor node', () => {
   expect(props.onAddNode).toHaveBeenCalledWith('b', 'left');
 });
 
+test('root left plus click still creates a dependency predecessor node', () => {
+  const { props } = renderCanvas();
+
+  fireEvent.click(screen.getByTestId('left-dependency-handle-root'));
+
+  expect(props.onAddNode).toHaveBeenCalledWith('root', 'left');
+});
+
+test('root bottom plus is not rendered', () => {
+  renderCanvas();
+
+  expect(screen.queryByTestId('bottom-child-handle-root')).toBeNull();
+});
+
+test('non-root bottom plus click adds a child node', () => {
+  const { props } = renderCanvas();
+
+  fireEvent.click(screen.getByTestId('bottom-child-handle-b'));
+
+  expect(props.onAddNode).toHaveBeenCalledWith('b');
+});
+
 test('dragging a node onto the left plus creates a dependency', () => {
   const { container, props } = renderCanvas();
   const taskARect = screen.getByTestId('node-drag-a');

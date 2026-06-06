@@ -628,17 +628,9 @@ const App: React.FC = () => {
           conn.toId === 'root'
         );
 
-        // Handle root parent
-        if (isRootDependencyPredecessor) {
+        // The initial final-deliverable node must not receive child issues.
+        if (isRootDependencyPredecessor || parentId === 'root') {
           parentId = undefined;
-        } else if (parentId === 'root') {
-          if (registrationSettings.create_root_issue) {
-            parentId = 'root';
-          } else if (registrationSettings.existing_root_issue_id) {
-            parentId = registrationSettings.existing_root_issue_id;
-          } else {
-            parentId = undefined;
-          }
         }
 
         // Map 'root' dependency to actual root ID if needed

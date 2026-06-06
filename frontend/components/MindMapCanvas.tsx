@@ -721,10 +721,11 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                   </g>
                 )}
 
-                <g
-                  transform={`translate(0, ${NODE_HEIGHT / 2 + 5})`}
-                  className="group/handle opacity-0 group-hover:opacity-100 transition-opacity"
-                >
+                {!isRoot && (
+                  <g
+                    transform={`translate(0, ${NODE_HEIGHT / 2 + 5})`}
+                    className="group/handle opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
                   <circle
                     r="6"
                     className="shake-on-hover fill-slate-400 stroke-white stroke-2 shadow-sm pointer-events-none"
@@ -750,7 +751,8 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                       onAddNode(node.data.id);
                     }}
                   />
-                </g>
+                  </g>
+                )}
 
                 <g className={`transition-opacity duration-200 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                   {(
