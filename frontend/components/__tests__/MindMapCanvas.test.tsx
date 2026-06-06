@@ -24,8 +24,6 @@ const renderCanvas = (overrides = {}) => {
     onDeleteNode: vi.fn(),
     onSetEditingId: vi.fn(),
     onAddConnection: vi.fn(),
-    onDeleteConnection: vi.fn(),
-    onDetachNode: vi.fn(),
     onMoveNode: vi.fn(),
     ...overrides,
   };
@@ -152,6 +150,8 @@ test('renders dependency arrows from the source edge to the target edge', () => 
   const arrow = container.querySelector('path[marker-end="url(#dependency-arrow)"]');
   expect(arrow).not.toBeNull();
   expect(arrow).not.toHaveAttribute('stroke-dasharray');
+  expect(container.querySelector('path[stroke="rgba(0,0,0,0)"]')).toBeNull();
+  expect(container.querySelector('path[pointer-events="stroke"]')).toBeNull();
 
   const marker = container.querySelector('marker#dependency-arrow');
   expect(marker).toHaveAttribute('markerWidth', '6');

@@ -22,8 +22,6 @@ interface Props {
   onDeleteNode: (id: string) => void;
   onSetEditingId: (id: string | null) => void;
   onAddConnection: (fromId: string, toId: string) => void;
-  onDeleteConnection: (connId: string) => void;
-  onDetachNode: (id: string) => void;
   onMoveNode: (childId: string, newParentId: string) => void;
   registrationSettings?: {
     create_root_issue?: boolean;
@@ -149,8 +147,6 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
   onDeleteNode,
   onSetEditingId,
   onAddConnection,
-  onDeleteConnection,
-  onDetachNode,
   onMoveNode,
   registrationSettings
 }, ref) => {
@@ -328,33 +324,11 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
               addDays(target.endDate, 1) === source.startDate;
 
             return (
-              <g key={`link-group-${source.id}-${target.id}`} className="group/link">
-                {/* 判定用の太い透明な線 - onMouseDown で処理 */}
-                <path
-                  d={dPath || undefined}
-                  fill="none"
-                  stroke="rgba(0,0,0,0)"
-                  strokeWidth="24"
-                  pointerEvents="stroke"
-                  className="cursor-pointer"
-                  onMouseDown={(e) => {
-                    e.stopPropagation();
-                    const targetTitle = /^\d+$/.test(target.id) ? `#${target.id} ${target.text}` : target.text;
-                    if (window.confirm(
-                      t(
-                        'redmine_create_tasks.canvas.detach_confirm',
-                        'Detach connection to "%{title}"?\n(The node will move under the root.)',
-                        { title: targetTitle }
-                      )
-                    )) {
-                      onDetachNode(target.id);
-                    }
-                  }}
-                />
+              <g key={`link-group-${source.id}-${target.id}`}>
                 {/* 実際に表示される線 */}
                 <path
                   d={dPath || undefined}
-                  className={`mindmap-link transition-all duration-300 pointer-events-none stroke-[3px] group-hover/link:stroke-rose-500 group-hover/link:stroke-[4px] ${isCriticalPath ? 'stroke-orange-500 stroke-[4px] opacity-100' : 'stroke-slate-900 opacity-100'}`}
+                  className={`mindmap-link transition-all duration-300 pointer-events-none stroke-[3px] ${isCriticalPath ? 'stroke-orange-500 stroke-[4px] opacity-100' : 'stroke-slate-900 opacity-100'}`}
                 />
               </g>
             );
@@ -370,25 +344,12 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
             const isCritical = criticalConnIds.has(conn.id);
 
             return (
-              <g key={`conn-group-${conn.id}`} className="group/conn">
-                {/* 判定用の太い透明な線 - onMouseDown で処理 */}
-                <path
-                  d={path}
-                  fill="none"
-                  stroke="rgba(0,0,0,0)"
-                  strokeWidth="24"
-                  pointerEvents="stroke"
-                  className="cursor-pointer"
-                  onMouseDown={(e) => {
-                    e.stopPropagation();
-                    onDeleteConnection(conn.id);
-                  }}
-                />
+              <g key={`conn-group-${conn.id}`}>
                 {/* 実際に表示される線 */}
                 <path
                   d={path}
                   markerEnd="url(#dependency-arrow)"
-                  className={`custom-connector transition-all duration-300 pointer-events-none stroke-[3px] group-hover/conn:stroke-rose-500 group-hover/conn:stroke-[4px] ${isCritical ? 'stroke-orange-500 stroke-[4.5px] opacity-100 shadow-[0_0_10px_orange]' : 'stroke-slate-900 opacity-100'}`}
+                  className={`custom-connector transition-all duration-300 pointer-events-none stroke-[3px] ${isCritical ? 'stroke-orange-500 stroke-[4.5px] opacity-100 shadow-[0_0_10px_orange]' : 'stroke-slate-900 opacity-100'}`}
                 />
               </g>
             );

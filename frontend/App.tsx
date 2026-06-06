@@ -331,52 +331,6 @@ const App: React.FC = () => {
     }]);
   }, [connections, data, saveToHistory]);
 
-  const handleDeleteConnection = useCallback((connId: string) => {
-    saveToHistory();
-    setConnections(prev => prev.filter(c => c.id !== connId));
-  }, [saveToHistory]);
-
-  const handleDetachNode = useCallback((id: string) => {
-    if (id === 'root') return;
-    saveToHistory();
-
-    setData(prev => {
-      // 1. 移動対象のノードを探す
-      let targetNode: MindMapNode | null = null;
-      const findNode = (node: MindMapNode) => {
-        if (node.id === id) {
-          targetNode = node;
-          return;
-        }
-        node.children.forEach(findNode);
-      };
-      findNode(prev);
-
-      if (!targetNode) return prev;
-
-      // 2. 元の親から削除
-      const removeNodeFromTree = (node: MindMapNode): MindMapNode => ({
-        ...node,
-        children: node.children
-          .filter(child => child.id !== id)
-          .map(removeNodeFromTree)
-      });
-      const newRoot = removeNodeFromTree(prev);
-
-      // 3. ルートの子として追加し、directionを適宜設定
-      // ルートに追加されるため、デフォルトでright、あるいはバランスを取るロジックを入れても良い
-      // ここではシンプルに元のdirectionを維持、または未定義ならright
-      const detachedNode = { ...targetNode, direction: targetNode.direction || 'right' };
-
-      return {
-        ...newRoot,
-        children: [...newRoot.children, detachedNode]
-      };
-    });
-
-    // 今回の要件は「接続のみ削除」= 親子関係の解除なので、これでOK。
-  }, [saveToHistory]);
-
   const handleMoveNode = useCallback((childId: string, newParentId: string) => {
     if (childId === newParentId) return;
     if (childId === 'root') return; // rootは移動不可
@@ -960,8 +914,6 @@ const App: React.FC = () => {
           onDeleteNode={handleDeleteNode}
           onSetEditingId={setNodeToEdit}
           onAddConnection={handleAddConnection}
-          onDeleteConnection={handleDeleteConnection}
-          onDetachNode={handleDetachNode}
           onMoveNode={handleMoveNode}
           registrationSettings={registrationSettings}
         />
