@@ -121,3 +121,40 @@ test('does not render a right-side add handle', () => {
 
   expect(screen.queryByTestId('right-add-handle-b')).not.toBeInTheDocument();
 });
+
+test('renders dependency arrows from the source edge to the target edge', () => {
+  const { container } = renderCanvas({
+    connections: [{ id: 'a-b', fromId: 'a', toId: 'b' }],
+  });
+
+  const arrow = container.querySelector('path[marker-end="url(#dependency-arrow)"]');
+  expect(arrow).not.toBeNull();
+  expect(arrow).not.toHaveAttribute('stroke-dasharray');
+
+  const marker = container.querySelector('marker#dependency-arrow');
+  expect(marker).toHaveAttribute('markerWidth', '6');
+  expect(marker).toHaveAttribute('markerHeight', '6');
+
+  const path = arrow?.getAttribute('d') || '';
+  const match = path.match(
+    /^M ([-\d.]+) ([-\d.]+) C [-\d.]+ [-\d.]+, [-\d.]+ [-\d.]+, ([-\d.]+) ([-\d.]+)$/,
+  );
+  expect(match).not.toBeNull();
+
+  const [, startXRaw, startYRaw, endXRaw, endYRaw] = match || [];
+  const start = { x: Number(startXRaw), y: Number(startYRaw) };
+  const end = { x: Number(endXRaw), y: Number(endYRaw) };
+  const from = getNodeTranslate('a');
+  const to = getNodeTranslate('b');
+  const direction = from.x <= to.x ? 1 : -1;
+  const edgeOffset = 100 + 8;
+
+  expect(start).toEqual({
+    x: from.x + direction * edgeOffset,
+    y: from.y,
+  });
+  expect(end).toEqual({
+    x: to.x - direction * edgeOffset,
+    y: to.y,
+  });
+});

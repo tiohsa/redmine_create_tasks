@@ -66,6 +66,29 @@ const splitTextForDisplay = (text: string): string[] => {
 const NODE_WIDTH = 200;
 const NODE_HEIGHT = 100;
 const EDIT_NODE_HEIGHT = 116;
+const DEPENDENCY_NODE_GAP = 8;
+const MIN_DEPENDENCY_CURVE = 80;
+
+const buildDependencyArrowPath = (
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+): string => {
+  const isLeftToRight = from.x <= to.x;
+  const direction = isLeftToRight ? 1 : -1;
+  const start = {
+    x: from.x + direction * (NODE_WIDTH / 2 + DEPENDENCY_NODE_GAP),
+    y: from.y,
+  };
+  const end = {
+    x: to.x - direction * (NODE_WIDTH / 2 + DEPENDENCY_NODE_GAP),
+    y: to.y,
+  };
+  const curve = Math.max(MIN_DEPENDENCY_CURVE, Math.abs(end.x - start.x) / 2);
+  const startControlX = start.x + direction * curve;
+  const endControlX = end.x - direction * curve;
+
+  return `M ${start.x} ${start.y} C ${startControlX} ${start.y}, ${endControlX} ${end.y}, ${end.x} ${end.y}`;
+};
 
 const buildTreeLayout = (data: MindMapNode, connections: Connection[]) => {
   const treeLayout = d3.tree<MindMapNode>().nodeSize([240, 170]);
@@ -278,14 +301,14 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
         <defs>
           <marker
             id="dependency-arrow"
-            markerWidth="8"
-            markerHeight="8"
-            refX="7"
-            refY="4"
+            markerWidth="6"
+            markerHeight="6"
+            refX="5.25"
+            refY="3"
             orient="auto"
             markerUnits="strokeWidth"
           >
-            <path d="M 0 0 L 8 4 L 0 8 z" className="fill-sky-600" />
+            <path d="M 0 0 L 6 3 L 0 6 z" className="fill-sky-600" />
           </marker>
         </defs>
         <g ref={zoomContainerRef} className="zoom-container">
@@ -338,12 +361,12 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
           })}
 
           {/* Custom Connections */}
-          {connections.map((conn) => {
-            const from = getNodePos(conn.fromId);
-            const to = getNodePos(conn.toId);
-            const dx = to.x - from.x;
-            const midX = from.x + dx / 2;
-            const path = `M ${from.x} ${from.y} C ${midX} ${from.y}, ${midX} ${to.y}, ${to.x} ${to.y}`;
+          {connections
+            .filter((conn) => (conn.type ?? 'dependency') === 'dependency')
+            .map((conn) => {
+              const from = getNodePos(conn.fromId);
+              const to = getNodePos(conn.toId);
+              const path = buildDependencyArrowPath(from, to);
             const isCritical = criticalConnIds.has(conn.id);
 
             return (
@@ -365,7 +388,6 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                 <path
                   d={path}
                   markerEnd="url(#dependency-arrow)"
-                  strokeDasharray="8 6"
                   className={`custom-connector transition-all duration-300 pointer-events-none stroke-[3px] group-hover/conn:stroke-rose-500 group-hover/conn:stroke-[4px] ${isCritical ? 'stroke-orange-500 stroke-[4.5px] opacity-100 shadow-[0_0_10px_orange]' : 'stroke-slate-900 opacity-100'}`}
                 />
               </g>
