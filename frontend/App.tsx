@@ -13,6 +13,7 @@ import { fetchMasterData, MasterData } from './services/masterDataService';
 import RegistrationSettingsDialog, { RegistrationSettings } from './components/RegistrationSettingsDialog';
 import { t } from './i18n';
 import PageTabBar from './components/PageTabBar';
+import { addDependencyConnection, moveNodeAsChild } from './utils/nodeMove';
 
 const todayIso = () => new Date().toISOString().split('T')[0];
 const createId = () => Math.random().toString(36).slice(2, 11);
@@ -282,127 +283,33 @@ const App: React.FC = () => {
   }, [saveToHistory]);
 
   const handleAddConnection = useCallback((fromId: string, toId: string) => {
-    if (fromId === toId) return;
+    const result = addDependencyConnection(data, connections, fromId, toId, `conn-${Date.now()}`);
 
-    if (connections.some(c => c.fromId === fromId && c.toId === toId)) {
-      return;
-    }
+    if (!result.changed) return;
 
-    if (connections.some(c => c.fromId === toId && c.toId === fromId)) {
-      return;
-    }
-
-    const isParentChildPair = (node: MindMapNode): boolean => {
-      return node.children.some(child => (
-        (node.id === fromId && child.id === toId) ||
-        (node.id === toId && child.id === fromId) ||
-        isParentChildPair(child)
-      ));
-    };
-
-    if (isParentChildPair(data)) {
-      return;
-    }
-
-    const graph = new Map<string, string[]>();
-    connections.forEach(conn => {
-      if ((conn.type ?? 'dependency') !== 'dependency') return;
-      graph.set(conn.fromId, [...(graph.get(conn.fromId) || []), conn.toId]);
-    });
-    const hasPath = (startId: string, targetId: string, seen = new Set<string>()): boolean => {
-      if (startId === targetId) return true;
-      if (seen.has(startId)) return false;
-      seen.add(startId);
-      return (graph.get(startId) || []).some(nextId => hasPath(nextId, targetId, seen));
-    };
-
-    if (hasPath(toId, fromId)) {
-      return;
-    }
 
     saveToHistory();
-    setConnections(prev => [...prev, {
-      id: `conn-${Date.now()}`,
-      fromId,
-      toId,
-      type: 'dependency',
-      sourceHandle: 'leftDependency',
-      targetHandle: 'leftDependency'
-    }]);
+    setData(result.data);
+    setConnections(result.connections);
   }, [connections, data, saveToHistory]);
 
   const handleMoveNode = useCallback((childId: string, newParentId: string) => {
     if (childId === newParentId) return;
     if (childId === 'root') return; // rootは移動不可
 
-    if (connections.some(conn => (
-      (conn.type ?? 'dependency') === 'dependency' &&
-      ((conn.fromId === childId && conn.toId === newParentId) ||
-        (conn.fromId === newParentId && conn.toId === childId))
-    ))) {
+    const result = moveNodeAsChild(data, connections, childId, newParentId);
+
+    if (result.invalidReason === 'circular') {
+      alert(t('redmine_create_tasks.app.move_invalid', 'Cannot move because the destination is a descendant.'));
       return;
     }
 
+    if (!result.changed) return;
+
     saveToHistory();
-
-    setData(prev => {
-      // 1. 移動対象のノードを探す
-      let targetNode: MindMapNode | null = null;
-      const findNode = (n: MindMapNode) => {
-        if (n.id === childId) {
-          targetNode = n;
-          return;
-        }
-        n.children.forEach(findNode);
-      };
-      findNode(prev);
-
-      if (!targetNode) return prev;
-
-      // 2. 循環参照チェック: newParentId が childId の子孫でないか確認
-      let isCircular = false;
-      const checkCircular = (n: MindMapNode) => {
-        if (n.id === newParentId) isCircular = true;
-        n.children.forEach(checkCircular);
-      };
-      checkCircular(targetNode);
-
-      if (isCircular) {
-        alert(t('redmine_create_tasks.app.move_invalid', 'Cannot move because the destination is a descendant.'));
-        return prev;
-      }
-
-      // 3. 元の親から削除
-      const removeNodeFromTree = (node: MindMapNode): MindMapNode => ({
-        ...node,
-        children: node.children
-          .filter(child => child.id !== childId)
-          .map(removeNodeFromTree)
-      });
-      const rootWithoutChild = removeNodeFromTree(prev);
-
-      // 4. 新しい親に追加
-      // 親のdirectionを継承するか、デフォルト(right)にするか。
-      // ここでは既存のdirectionを維持しつつ、もし未定義なら親に合わせる等のケアを入れる
-      // ただしMindMapNodeはdirection任意なので、そのままでも描画ロジックがよしなに計らう場合もあるが、
-      // 念のため、親がrootなら childのdirectionを再評価する余地がある。
-      // ひとまずシンプルに追加する。
-      const addChildToTree = (node: MindMapNode): MindMapNode => {
-        if (node.id === newParentId) {
-          return {
-            ...node,
-            children: [...node.children, targetNode!]
-          };
-        }
-        return {
-          ...node,
-          children: node.children.map(addChildToTree)
-        };
-      };
-
-      return addChildToTree(rootWithoutChild);
-    });
-  }, [connections, saveToHistory]);
+    setData(result.data);
+    setConnections(result.connections);
+  }, [connections, data, saveToHistory]);
 
   const handleUpdateNodeData = useCallback((id: string, updates: Partial<MindMapNode>) => {
     setData(prev => updateNodeById(prev, id, node => ({ ...node, ...updates })));
