@@ -14,6 +14,7 @@ import RegistrationSettingsDialog, { RegistrationSettings } from './components/R
 import { t } from './i18n';
 import PageTabBar from './components/PageTabBar';
 import { addDependencyConnection, moveNodeAsChild } from './utils/nodeMove';
+import { buildTaskRegistrationPayload } from './utils/taskRegistrationPayload';
 
 const todayIso = () => new Date().toISOString().split('T')[0];
 const createId = () => Math.random().toString(36).slice(2, 11);
@@ -77,22 +78,7 @@ const flattenNodes = (node: MindMapNode): MindMapNode[] => [
   ...node.children.flatMap(flattenNodes)
 ];
 
-const buildDependencyMap = (_root: MindMapNode, connections: Connection[]): Map<string, Set<string>> => {
-  const depMap = new Map<string, Set<string>>();
-  const addDep = (dependsOn: string, target: string) => {
-    if (!dependsOn || !target || dependsOn === target) return;
-    const current = depMap.get(target) || new Set<string>();
-    current.add(dependsOn);
-    depMap.set(target, current);
-  };
 
-  connections.forEach(conn => {
-    if ((conn.type ?? 'dependency') === 'dependency') {
-      addDep(conn.fromId, conn.toId);
-    }
-  });
-  return depMap;
-};
 
 const App: React.FC = () => {
   const [pages, setPages] = useState<Page[]>(() => {
@@ -228,6 +214,8 @@ const App: React.FC = () => {
     };
 
     const parentDirection = parentId === 'root' ? direction : findDirection(data);
+    // direction is a visual layout hint only.
+    // Relationship semantics are determined by children and dependency connections.
     const finalDirection = parentDirection || direction || 'right';
 
     const newNode: MindMapNode = {
@@ -441,33 +429,13 @@ const App: React.FC = () => {
   }, [handleLoadSettings]);
 
   const handleRegisterIssues = useCallback(async () => {
-    // Parent map construction
-    const parentMap = new Map<string, string>();
-    const buildParentMap = (node: MindMapNode) => {
-      node.children.forEach(child => {
-        parentMap.set(child.id, node.id);
-        buildParentMap(child);
-      });
-    };
-    buildParentMap(data);
+    const { tasks: tasksPayload, defaults: registrationDefaults } = buildTaskRegistrationPayload(
+      data,
+      connections,
+      registrationSettings
+    );
 
-    const nodes = flattenNodes(data).filter(node => {
-      // Root node handling
-      if (node.id === 'root') {
-        // If settings explicitly say do NOT create root issue, exclude it
-        if (registrationSettings.create_root_issue === false) {
-          return false;
-        }
-        return true;
-      }
-
-      // Existing node handling (for children or any non-root)
-      if (/^\d+$/.test(node.id)) return false;
-
-      return true;
-    });
-
-    if (nodes.length === 0) {
+    if (tasksPayload.length === 0) {
       setRegisterError(t('redmine_create_tasks.app.register_no_tasks', 'No tasks to register.'));
       setRegisterResult(null);
       return;
@@ -478,52 +446,6 @@ const App: React.FC = () => {
     setRegisterResult(null);
 
     try {
-      const depMap = buildDependencyMap(data, connections);
-
-      const tasksPayload = nodes.map(node => {
-        const deps = Array.from(depMap.get(node.id) || []);
-        let parentId = parentMap.get(node.id);
-        const isRootDependencyPredecessor = parentId === 'root' && connections.some(conn =>
-          (conn.type ?? 'dependency') === 'dependency' &&
-          conn.fromId === node.id &&
-          conn.toId === 'root'
-        );
-
-        // The initial final-deliverable node must not receive child issues.
-        if (isRootDependencyPredecessor || parentId === 'root') {
-          parentId = undefined;
-        }
-
-        // Map 'root' dependency to actual root ID if needed
-        let finalDeps = [...deps];
-        if (finalDeps.includes('root')) {
-          finalDeps = finalDeps.map(d => {
-            if (d === 'root') {
-              if (registrationSettings.create_root_issue) return 'root';
-              if (registrationSettings.existing_root_issue_id) return registrationSettings.existing_root_issue_id;
-              return undefined;
-            }
-            return d;
-          }).filter(Boolean) as string[];
-        }
-
-        // Ensure unique dependencies
-        const uniqueDeps = Array.from(new Set(finalDeps));
-
-        return {
-          id: node.id,
-          subject: node.text,
-          start_date: node.startDate,
-          due_date: node.endDate,
-          man_days: node.effort,
-          dependencies: uniqueDeps.length > 0 ? uniqueDeps : undefined,
-          parent_task_id: parentId
-        };
-      });
-
-      const registrationDefaults = Object.fromEntries(
-        Object.entries(registrationSettings).filter(([key]) => key !== 'relation_' + 'mode')
-      );
       const finalPayload = { tasks: tasksPayload, defaults: registrationDefaults };
       const result = await registerTasks(getProjectId(), finalPayload);
 

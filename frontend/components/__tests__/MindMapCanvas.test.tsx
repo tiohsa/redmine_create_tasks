@@ -98,10 +98,24 @@ test('root left plus click still creates a dependency predecessor node', () => {
   expect(props.onAddNode).toHaveBeenCalledWith('root', 'left');
 });
 
-test('root bottom plus is not rendered', () => {
-  renderCanvas();
+test('root bottom plus click adds a child node', () => {
+  const { props } = renderCanvas();
 
-  expect(screen.queryByTestId('bottom-child-handle-root')).toBeNull();
+  fireEvent.click(screen.getByTestId('bottom-child-handle-root'));
+
+  expect(props.onAddNode).toHaveBeenCalledWith('root');
+});
+
+test('dragging a node onto the root bottom plus moves it as a root child', () => {
+  const { container, props } = renderCanvas();
+  const taskARect = screen.getByTestId('node-drag-a');
+
+  fireEvent.mouseDown(taskARect, { clientX: 0, clientY: 0 });
+  fireEvent.mouseEnter(screen.getByTestId('bottom-child-handle-root'));
+  fireEvent.mouseUp(container.querySelector('svg') as Element);
+
+  expect(props.onMoveNode).toHaveBeenCalledWith('a', 'root');
+  expect(props.onAddConnection).not.toHaveBeenCalled();
 });
 
 test('non-root bottom plus click adds a child node', () => {
@@ -362,4 +376,136 @@ test('complex: two-branch dependency with child tickets reserves different space
 
   // B1-child should be below B1
   expect(posB1Child.y).toBeGreaterThan(posB1.y);
+});
+
+test('layout: root has a bottom child and root dependency predecessor', () => {
+  renderCanvas({
+    data: {
+      id: 'root',
+      text: 'Root',
+      children: [
+        { id: 'task-a', text: 'Task A', direction: 'right', children: [] },
+        {
+          id: 'task-b', text: 'Task B', direction: 'left',
+          children: [
+            { id: 'task-c', text: 'Task C', direction: 'left', children: [] }
+          ]
+        }
+      ]
+    },
+    connections: [
+      { id: 'conn-b-root', fromId: 'task-b', toId: 'root', type: 'dependency' }
+    ]
+  });
+
+  const posRoot = getNodeTranslate('root');
+  const posA = getNodeTranslate('task-a');
+  const posB = getNodeTranslate('task-b');
+  const posC = getNodeTranslate('task-c');
+
+  // Root child is below root
+  expect(posA.y).toBeGreaterThan(posRoot.y);
+
+  // Root dependency predecessor is left of root
+  expect(posB.x).toBeLessThan(posRoot.x);
+
+  // Verify that C and A do not overlap:
+  const yDiffAC = Math.abs(posA.y - posC.y);
+  const xDiffAC = Math.abs(posA.x - posC.x);
+  expect(yDiffAC >= 170 || xDiffAC >= 240).toBe(true);
+});
+
+test('layout regression: multiple predecessors of root', () => {
+  renderCanvas({
+    data: {
+      id: 'root',
+      text: 'Root',
+      children: [
+        { id: 'b1', text: 'Task B1', direction: 'left', children: [] },
+        { id: 'b2', text: 'Task B2', direction: 'left', children: [] },
+      ]
+    },
+    connections: [
+      { id: 'conn-b1-root', fromId: 'b1', toId: 'root', type: 'dependency' },
+      { id: 'conn-b2-root', fromId: 'b2', toId: 'root', type: 'dependency' },
+    ]
+  });
+
+  const posRoot = getNodeTranslate('root');
+  const posB1 = getNodeTranslate('b1');
+  const posB2 = getNodeTranslate('b2');
+
+  // Both are to the left of Root
+  expect(posB1.x).toBeLessThan(posRoot.x);
+  expect(posB2.x).toBeLessThan(posRoot.x);
+
+  // Stacked vertically with no overlap
+  expect(Math.abs(posB1.y - posB2.y)).toBeGreaterThanOrEqual(170);
+});
+
+test('layout regression: multiple predecessors of a root child', () => {
+  renderCanvas({
+    data: {
+      id: 'root',
+      text: 'Root',
+      children: [
+        {
+          id: 'child-a', text: 'Child A', direction: 'right',
+          children: []
+        },
+        { id: 'b1', text: 'Task B1', direction: 'left', children: [] },
+        { id: 'b2', text: 'Task B2', direction: 'left', children: [] },
+      ]
+    },
+    connections: [
+      { id: 'conn-b1-a', fromId: 'b1', toId: 'child-a', type: 'dependency' },
+      { id: 'conn-b2-a', fromId: 'b2', toId: 'child-a', type: 'dependency' },
+    ]
+  });
+
+  const posA = getNodeTranslate('child-a');
+  const posB1 = getNodeTranslate('b1');
+  const posB2 = getNodeTranslate('b2');
+
+  expect(posB1.x).toBeLessThan(posA.x);
+  expect(posB2.x).toBeLessThan(posA.x);
+  expect(Math.abs(posB1.y - posB2.y)).toBeGreaterThanOrEqual(170);
+});
+
+test('layout regression: dependency chain with children at different depths', () => {
+  renderCanvas({
+    data: {
+      id: 'root',
+      text: 'Root',
+      children: [
+        {
+          id: 'a', text: 'Task A', direction: 'right',
+          children: [
+            { id: 'a-child', text: 'A Child', direction: 'right', children: [] }
+          ]
+        },
+        {
+          id: 'b', text: 'Task B', direction: 'left',
+          children: [
+            { id: 'b-child', text: 'B Child', direction: 'left', children: [] }
+          ]
+        },
+      ]
+    },
+    connections: [
+      { id: 'conn-b-a', fromId: 'b', toId: 'a', type: 'dependency' },
+    ]
+  });
+
+  const posA = getNodeTranslate('a');
+  const posAChild = getNodeTranslate('a-child');
+  const posB = getNodeTranslate('b');
+  const posBChild = getNodeTranslate('b-child');
+
+  // Horizontally ordered
+  expect(posB.x).toBeLessThan(posA.x);
+  
+  // Children are below their parents
+  expect(posAChild.y).toBeGreaterThan(posA.y);
+  expect(posBChild.y).toBeGreaterThan(posB.y);
 });

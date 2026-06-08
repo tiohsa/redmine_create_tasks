@@ -1,46 +1,39 @@
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { vi } from 'vitest';
+import { vi, test, expect } from 'vitest';
 import AiTaskExtractModal from '../AiTaskExtractModal';
+import { AiTask } from '../../types';
+
+const defaultProps = {
+  open: true,
+  provider: 'gemini' as const,
+  prompt: 'default prompt',
+  tasks: [{ subject: 'A' }, { subject: 'B' }, { subject: 'C' }] as AiTask[],
+  loading: false,
+  error: null,
+  onProviderChange: vi.fn(),
+  onPromptChange: vi.fn(),
+  onConfirm: vi.fn(),
+  onGenerate: vi.fn(),
+  onSaveSettings: vi.fn(),
+  onLoadDefaults: vi.fn(),
+  onClose: vi.fn(),
+};
 
 test('renders prompt editor and tasks list', () => {
-  render(
-    <AiTaskExtractModal
-      open
-      prompt="default prompt"
-      tasks={["A", "B", "C"]}
-      loading={false}
-      error={null}
-      onPromptChange={vi.fn()}
-      onConfirm={vi.fn()}
-      onRetry={vi.fn()}
-      onClose={vi.fn()}
-    />
-  );
+  render(<AiTaskExtractModal {...defaultProps} />);
 
-  expect(screen.getByText('AIタスク抽出')).toBeInTheDocument();
+  expect(screen.getByText('AI Provider')).toBeInTheDocument();
   expect(screen.getByDisplayValue('default prompt')).toBeInTheDocument();
   expect(screen.getByText('A')).toBeInTheDocument();
 });
 
-test('allows retry on error', async () => {
-  const user = userEvent.setup();
-  const onRetry = vi.fn();
-
+test('renders error message when provided', () => {
   render(
     <AiTaskExtractModal
-      open
-      prompt="default prompt"
-      tasks={[]}
-      loading={false}
+      {...defaultProps}
       error="失敗しました"
-      onPromptChange={vi.fn()}
-      onConfirm={vi.fn()}
-      onRetry={onRetry}
-      onClose={vi.fn()}
     />
   );
 
-  await user.click(screen.getByRole('button', { name: '再試行' }));
-  expect(onRetry).toHaveBeenCalled();
+  expect(screen.getByText('失敗しました')).toBeInTheDocument();
 });
