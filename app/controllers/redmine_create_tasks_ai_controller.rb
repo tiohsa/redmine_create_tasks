@@ -97,6 +97,7 @@ class RedmineCreateTasksAiController < ApplicationController
        - Consider execution order and list tasks in a natural sequence
        - The level of granularity must ensure the deliverable is completed if all tasks are executed
        - Each task must be within 40 characters
+       - **If possible, estimate the start date and due date for each task based on the reference date.**
        
        ## Internal Checks (Do Not Output)
        Before outputting, internally verify the following:
@@ -113,12 +114,27 @@ class RedmineCreateTasksAiController < ApplicationController
        If anything other than JSON is output, it will be considered a failure.
        Do not include any text, explanation, notes, line breaks, or comments.
        
-       {"tasks": ["Task 1", "Task 2", "Task 3"]}
+       {
+         "tasks": [
+           {
+             "subject": "Task 1",
+             "start_date": "YYYY-MM-DD",
+             "due_date": "YYYY-MM-DD"
+           },
+           {
+             "subject": "Task 2",
+             "start_date": "YYYY-MM-DD",
+             "due_date": "YYYY-MM-DD"
+           }
+         ]
+       }
        
        # Constraints
        - Output must be JSON only
        - The top-level key must be "tasks" only
-       - The value must be an array of strings only
+       - The value must be an array of objects
+       - Each object must have a "subject" string
+       - "start_date" and "due_date" are optional but recommended in YYYY-MM-DD format
        - Markdown, code blocks, and natural language explanations are prohibited
     PROMPT
   end
@@ -211,7 +227,8 @@ class RedmineCreateTasksAiController < ApplicationController
   end
 
   def build_prompt(topic, prompt)
-    [prompt, "目標（成果物）: \"#{topic}\""].compact.join("\n\n")
+    reference_info = "基準日: #{Time.current.strftime('%Y-%m-%d')}"
+    [prompt, reference_info, "目標（成果物）: \"#{topic}\""].compact.join("\n\n")
   end
 
   def gemini_model
@@ -226,12 +243,23 @@ class RedmineCreateTasksAiController < ApplicationController
     json_text = raw_text.gsub(/\A```(?:json)?\s*\n?/, '').gsub(/\n?```\s*\z/, '').strip
 
     data = JSON.parse(json_text)
-    tasks = data['tasks']
-    Rails.logger.info "Parsed tasks: #{tasks.inspect}"
-    return tasks if tasks.is_a?(Array)
+    raw_tasks = data['tasks']
+    return [] unless raw_tasks.is_a?(Array)
 
-    Rails.logger.warn "Tasks is not an array: #{tasks.class}"
-    []
+    tasks = raw_tasks.map do |task|
+      if task.is_a?(Hash)
+        {
+          'subject' => task['subject'].to_s,
+          'start_date' => task['start_date'],
+          'due_date' => task['due_date']
+        }
+      else
+        { 'subject' => task.to_s }
+      end
+    end
+
+    Rails.logger.info "Parsed normalized tasks: #{tasks.inspect}"
+    tasks
   rescue JSON::ParserError => e
     Rails.logger.error "JSON parse error: #{e.message}, text: #{json_text}"
     []

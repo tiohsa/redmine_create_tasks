@@ -94,6 +94,8 @@ export const calculateCriticalPath = (
 
     // 2. 接続関係の構築 (Connections)
     connections.forEach(conn => {
+        if ((conn.type ?? 'dependency') !== 'dependency') return;
+
         const fromNode = graph.get(conn.fromId);
         const toNode = graph.get(conn.toId);
         if (fromNode && toNode) {
@@ -102,26 +104,8 @@ export const calculateCriticalPath = (
         }
     });
 
-    // 2.1 親子関係の依存関係構築 (Hierarchy)
-    flatNodes.forEach(node => {
-        const parentNode = graph.get(node.id);
-        if (!parentNode) return;
-
-        node.children.forEach(child => {
-            const childNode = graph.get(child.id);
-            if (!childNode) return;
-
-            if (child.direction === 'left') {
-                // Left Child (Predecessor) -> Parent
-                childNode.successors.push(parentNode.id);
-                parentNode.predecessors.push(childNode.id);
-            } else {
-                // Parent -> Right Child (Successor) or Default (Right)
-                parentNode.successors.push(childNode.id);
-                childNode.predecessors.push(parentNode.id);
-            }
-        });
-    });
+    // Do not infer dependencies from children.
+    // Dependencies are created only from explicit dependency connections.
 
     // トポロジカルソート (Kahn's algorithm)
     const inDegree = new Map<string, number>();

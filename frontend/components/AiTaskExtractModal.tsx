@@ -1,18 +1,18 @@
-
 import React, { useState, useEffect } from 'react';
-import { RotateCcw, Save, Settings, CheckSquare, Square } from 'lucide-react';
+import { AiTask } from '../types';
+import { RotateCcw, Save, Settings, CheckSquare, Square, Calendar } from 'lucide-react';
 import { t } from '../i18n';
 
 type AiTaskExtractModalProps = {
   open: boolean;
   provider: 'gemini' | 'azure-openai';
   prompt: string;
-  tasks: string[];
+  tasks: AiTask[];
   loading: boolean;
   error: string | null;
   onProviderChange: (value: 'gemini' | 'azure-openai') => void;
   onPromptChange: (value: string) => void;
-  onConfirm: (selectedTasks: string[]) => void;
+  onConfirm: (selectedTasks: AiTask[]) => void;
   onGenerate: () => void;
   onSaveSettings: () => void;
   onLoadDefaults: () => void;
@@ -161,17 +161,27 @@ const AiTaskExtractModal: React.FC<AiTaskExtractModalProps> = ({
                     {tasks.map((task, index) => {
                       const isSelected = selectedIndices.has(index);
                       return (
-                        <li key={`${task} -${index} `}>
+                        <li key={`${task.subject}-${index}`}>
                           <button
                             onClick={() => toggleSelect(index)}
-                            className={`flex items - start gap - 3 w - full text - left p - 2 rounded - lg transition - colors ${isSelected ? 'bg-white shadow-sm ring-1 ring-slate-200' : 'hover:bg-slate-100'} `}
+                            className={`flex items-start gap-3 w-full text-left p-3 rounded-xl transition-all ${isSelected ? 'bg-white shadow-sm ring-1 ring-slate-200' : 'hover:bg-slate-100'}`}
                           >
-                            <div className={`mt - 0.5 ${isSelected ? 'text-purple-600' : 'text-slate-300'} `}>
+                            <div className={`mt-0.5 ${isSelected ? 'text-purple-600' : 'text-slate-300'}`}>
                               {isSelected ? <CheckSquare size={18} /> : <Square size={18} />}
                             </div>
-                            <span className={`text - sm break-words ${isSelected ? 'text-slate-800 font-medium' : 'text-slate-500'} `}>
-                              {task}
-                            </span>
+                            <div className="flex flex-col gap-1 flex-1 min-w-0">
+                              <span className={`text-sm break-words ${isSelected ? 'text-slate-800 font-semibold' : 'text-slate-500'}`}>
+                                {task.subject}
+                              </span>
+                              {(task.start_date || task.due_date) && (
+                                <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400">
+                                  <Calendar size={12} className="opacity-70" />
+                                  <span>{task.start_date || '???'}</span>
+                                  <span>→</span>
+                                  <span>{task.due_date || '???'}</span>
+                                </div>
+                              )}
+                            </div>
                           </button>
                         </li>
                       );

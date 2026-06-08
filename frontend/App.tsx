@@ -1,8 +1,8 @@
 
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { MindMapNode, Connection, TaskRegistrationResult, Page } from './types';
-import MindMapCanvas, { MindMapCanvasHandle } from './components/MindMapCanvas';
-import { Plus, Trash2, Cpu, Download, Undo, CalendarRange, Workflow, Target, Map as MapIcon, Send, Settings, Save, X, Maximize, Minimize } from 'lucide-react';
+import MindMapCanvas, { MindMapCanvasHandle, buildTreeLayout } from './components/MindMapCanvas';
+import { Plus, Trash2, Cpu, Download, Undo, CalendarRange, Workflow, Target, Map as MapIcon, Send, Settings, Save, X, Maximize, Minimize, LayoutGrid } from 'lucide-react';
 import { expandNodeWithAI } from './services/geminiService';
 import { expandNodeWithAzureOpenAi } from './services/azureOpenAiService';
 import { calculateCriticalPath } from './utils/cpm';
@@ -13,6 +13,8 @@ import { fetchMasterData, MasterData } from './services/masterDataService';
 import RegistrationSettingsDialog, { RegistrationSettings } from './components/RegistrationSettingsDialog';
 import { t } from './i18n';
 import PageTabBar from './components/PageTabBar';
+import { addDependencyConnection, moveNodeAsChild } from './utils/nodeMove';
+import { buildTaskRegistrationPayload } from './utils/taskRegistrationPayload';
 
 const todayIso = () => new Date().toISOString().split('T')[0];
 const createId = () => Math.random().toString(36).slice(2, 11);
@@ -76,39 +78,9 @@ const flattenNodes = (node: MindMapNode): MindMapNode[] => [
   ...node.children.flatMap(flattenNodes)
 ];
 
-const addHierarchyDependency = (
-  parent: MindMapNode,
-  child: MindMapNode,
-  addDep: (dependsOn: string, target: string) => void
-) => {
-  if (child.direction === 'left') {
-    // Left child is a prerequisite of parent.
-    addDep(child.id, parent.id);
-    return;
-  }
-  // Right child (or default) is a successor of parent.
-  addDep(parent.id, child.id);
-};
-
-const buildDependencyMap = (root: MindMapNode, connections: Connection[]): Map<string, Set<string>> => {
-  const depMap = new Map<string, Set<string>>();
-  const addDep = (dependsOn: string, target: string) => {
-    if (!dependsOn || !target || dependsOn === target) return;
-    const current = depMap.get(target) || new Set<string>();
-    current.add(dependsOn);
-    depMap.set(target, current);
-  };
-
-  const walkTree = (node: MindMapNode) => {
-    node.children.forEach(child => {
-      addHierarchyDependency(node, child, addDep);
-      walkTree(child);
-    });
-  };
-  walkTree(root);
-
-  connections.forEach(conn => addDep(conn.fromId, conn.toId));
-  return depMap;
+const hasNodesWithoutCoords = (node: MindMapNode): boolean => {
+  if (node.x === undefined || node.y === undefined) return true;
+  return node.children.some(hasNodesWithoutCoords);
 };
 
 const App: React.FC = () => {
@@ -172,7 +144,7 @@ const App: React.FC = () => {
   const [criticalConnIds, setCriticalConnIds] = useState<Set<string>>(new Set());
   const [aiProvider, setAiProvider] = useState<'gemini' | 'azure-openai'>('gemini');
   const [aiPrompt, setAiPrompt] = useState(t('redmine_create_tasks.app.default_prompt', 'Default prompt'));
-  const [aiTasks, setAiTasks] = useState<string[]>([]);
+  const [aiTasks, setAiTasks] = useState<AiTask[]>([]);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const [aiTargetNodeId, setAiTargetNodeId] = useState<string | null>(null);
@@ -205,7 +177,44 @@ const App: React.FC = () => {
     loadMasterData();
   }, []);
 
+  const migratedPagesRef = useRef<Set<string>>(new Set());
 
+  // 初期マイグレーション
+  useEffect(() => {
+    const pageId = currentPage?.id;
+    if (!pageId || migratedPagesRef.current.has(pageId)) return;
+
+    if (data && hasNodesWithoutCoords(data)) {
+      const stripCoords = (node: MindMapNode): MindMapNode => ({
+        ...node,
+        x: undefined,
+        y: undefined,
+        isFixed: undefined,
+        children: node.children.map(stripCoords)
+      });
+      const strippedData = stripCoords(data);
+      const { nodes } = buildTreeLayout(strippedData, connections);
+      
+      const coordsMap = new Map<string, { x: number; y: number }>();
+      nodes.forEach(n => {
+        coordsMap.set(n.data.id, { x: n.x, y: n.y });
+      });
+
+      const applyCoords = (node: MindMapNode): MindMapNode => {
+        const coords = coordsMap.get(node.id);
+        return {
+          ...node,
+          x: coords?.x ?? node.x,
+          y: coords?.y ?? node.y,
+          isFixed: false,
+          children: node.children.map(applyCoords)
+        };
+      };
+
+      setData(prev => applyCoords(prev));
+    }
+    migratedPagesRef.current.add(pageId);
+  }, [currentPageIndex, currentPage?.id, data, connections, setData]);
 
   useEffect(() => {
     const saveData = {
@@ -235,17 +244,39 @@ const App: React.FC = () => {
     saveToHistory();
     const newNodeId = createId();
 
-    const findDirection = (node: MindMapNode): 'left' | 'right' | undefined => {
-      if (node.id === parentId) return node.direction;
-      for (const child of node.children) {
-        const d = findDirection(child);
-        if (d) return d;
-      }
-      return undefined;
-    };
+    const parentNode = findNodeById(data, parentId);
+    let px = parentNode?.x ?? 0;
+    let py = parentNode?.y ?? 0;
 
-    const parentDirection = parentId === 'root' ? direction : findDirection(data);
-    const finalDirection = parentDirection || direction || 'right';
+    // 親ノードが自動配置（x, y が未定義）の場合も含め、現在のレイアウト計算結果から正確な描画位置を取得します。
+    const { nodes: currentLayoutNodes } = buildTreeLayout(data, connections);
+    const layoutNode = currentLayoutNodes.find(n => n.data.id === parentId);
+    if (layoutNode) {
+      px = layoutNode.x;
+      py = layoutNode.y;
+    }
+
+    let targetX = px;
+    let targetY = py;
+
+    if (direction === 'left') {
+      targetX = px;
+      targetY = py - 240;
+    } else {
+      targetX = px + 170;
+      targetY = py;
+    }
+
+    // 衝突回避（表示されているすべてのノードの実位置と比較）
+    let collision = true;
+    while (collision) {
+      collision = currentLayoutNodes.some(n => n.x === targetX && n.y === targetY);
+      if (collision) {
+        targetX += 170;
+      }
+    }
+
+    const finalDirection = 'left';
 
     const newNode: MindMapNode = {
       id: newNodeId,
@@ -254,17 +285,38 @@ const App: React.FC = () => {
       endDate: todayIso(),
       effort: 1,
       children: [],
-      direction: finalDirection
+      direction: finalDirection,
+      x: direction === 'left' ? undefined : targetX,
+      y: direction === 'left' ? undefined : targetY,
+      isFixed: direction === 'left' ? false : true
     };
 
-    setData(prev => updateNodeById(prev, parentId, node => ({
-      ...node,
-      children: [...node.children, newNode]
-    })));
+    if (direction === 'left') {
+      setData(prev => ({
+        ...prev,
+        children: [...prev.children, { ...newNode, direction: 'left' }]
+      }));
+      setConnections(prev => [
+        ...prev,
+        {
+          id: `conn-${Date.now()}-${newNodeId}`,
+          fromId: newNodeId,
+          toId: parentId,
+          type: 'dependency',
+          sourceHandle: 'leftDependency',
+          targetHandle: 'leftDependency'
+        }
+      ]);
+    } else {
+      setData(prev => updateNodeById(prev, parentId, node => ({
+        ...node,
+        children: [...node.children, newNode]
+      })));
+    }
 
     setSelectedNodeId(newNodeId);
     setNodeToEdit(newNodeId);
-  }, [data, saveToHistory]);
+  }, [data, connections, saveToHistory, setData, setConnections]);
 
   const handleDeleteNode = useCallback((id: string) => {
     if (id === 'root') return;
@@ -282,128 +334,33 @@ const App: React.FC = () => {
   }, [saveToHistory]);
 
   const handleAddConnection = useCallback((fromId: string, toId: string) => {
-    if (fromId === toId) return;
-    if (connections.some(c => (c.fromId === fromId && c.toId === toId) || (c.fromId === toId && c.toId === fromId))) {
-      return;
-    }
+    const result = addDependencyConnection(data, connections, fromId, toId, `conn-${Date.now()}`);
+
+    if (!result.changed) return;
+
+
     saveToHistory();
-    setConnections(prev => [...prev, {
-      id: `conn-${Date.now()}`,
-      fromId,
-      toId
-    }]);
-  }, [connections, saveToHistory]);
-
-  const handleDeleteConnection = useCallback((connId: string) => {
-    saveToHistory();
-    setConnections(prev => prev.filter(c => c.id !== connId));
-  }, [saveToHistory]);
-
-  const handleDetachNode = useCallback((id: string) => {
-    if (id === 'root') return;
-    saveToHistory();
-
-    setData(prev => {
-      // 1. 移動対象のノードを探す
-      let targetNode: MindMapNode | null = null;
-      const findNode = (node: MindMapNode) => {
-        if (node.id === id) {
-          targetNode = node;
-          return;
-        }
-        node.children.forEach(findNode);
-      };
-      findNode(prev);
-
-      if (!targetNode) return prev;
-
-      // 2. 元の親から削除
-      const removeNodeFromTree = (node: MindMapNode): MindMapNode => ({
-        ...node,
-        children: node.children
-          .filter(child => child.id !== id)
-          .map(removeNodeFromTree)
-      });
-      const newRoot = removeNodeFromTree(prev);
-
-      // 3. ルートの子として追加し、directionを適宜設定
-      // ルートに追加されるため、デフォルトでright、あるいはバランスを取るロジックを入れても良い
-      // ここではシンプルに元のdirectionを維持、または未定義ならright
-      const detachedNode = { ...targetNode, direction: targetNode.direction || 'right' };
-
-      return {
-        ...newRoot,
-        children: [...newRoot.children, detachedNode]
-      };
-    });
-
-    // 今回の要件は「接続のみ削除」= 親子関係の解除なので、これでOK。
-  }, [saveToHistory]);
+    setData(result.data);
+    setConnections(result.connections);
+  }, [connections, data, saveToHistory]);
 
   const handleMoveNode = useCallback((childId: string, newParentId: string) => {
     if (childId === newParentId) return;
     if (childId === 'root') return; // rootは移動不可
 
+    const result = moveNodeAsChild(data, connections, childId, newParentId);
+
+    if (result.invalidReason === 'circular') {
+      alert(t('redmine_create_tasks.app.move_invalid', 'Cannot move because the destination is a descendant.'));
+      return;
+    }
+
+    if (!result.changed) return;
+
     saveToHistory();
-
-    setData(prev => {
-      // 1. 移動対象のノードを探す
-      let targetNode: MindMapNode | null = null;
-      const findNode = (n: MindMapNode) => {
-        if (n.id === childId) {
-          targetNode = n;
-          return;
-        }
-        n.children.forEach(findNode);
-      };
-      findNode(prev);
-
-      if (!targetNode) return prev;
-
-      // 2. 循環参照チェック: newParentId が childId の子孫でないか確認
-      let isCircular = false;
-      const checkCircular = (n: MindMapNode) => {
-        if (n.id === newParentId) isCircular = true;
-        n.children.forEach(checkCircular);
-      };
-      checkCircular(targetNode);
-
-      if (isCircular) {
-        alert(t('redmine_create_tasks.app.move_invalid', 'Cannot move because the destination is a descendant.'));
-        return prev;
-      }
-
-      // 3. 元の親から削除
-      const removeNodeFromTree = (node: MindMapNode): MindMapNode => ({
-        ...node,
-        children: node.children
-          .filter(child => child.id !== childId)
-          .map(removeNodeFromTree)
-      });
-      const rootWithoutChild = removeNodeFromTree(prev);
-
-      // 4. 新しい親に追加
-      // 親のdirectionを継承するか、デフォルト(right)にするか。
-      // ここでは既存のdirectionを維持しつつ、もし未定義なら親に合わせる等のケアを入れる
-      // ただしMindMapNodeはdirection任意なので、そのままでも描画ロジックがよしなに計らう場合もあるが、
-      // 念のため、親がrootなら childのdirectionを再評価する余地がある。
-      // ひとまずシンプルに追加する。
-      const addChildToTree = (node: MindMapNode): MindMapNode => {
-        if (node.id === newParentId) {
-          return {
-            ...node,
-            children: [...node.children, targetNode!]
-          };
-        }
-        return {
-          ...node,
-          children: node.children.map(addChildToTree)
-        };
-      };
-
-      return addChildToTree(rootWithoutChild);
-    });
-  }, [saveToHistory]);
+    setData(result.data);
+    setConnections(result.connections);
+  }, [connections, data, saveToHistory]);
 
   const handleUpdateNodeData = useCallback((id: string, updates: Partial<MindMapNode>) => {
     setData(prev => updateNodeById(prev, id, node => ({ ...node, ...updates })));
@@ -460,18 +417,23 @@ const App: React.FC = () => {
     }
   }, [aiPrompt, aiProvider, data, aiTargetNodeId]);
 
-  const handleApplyAiTasks = useCallback((tasksToApply: string[]) => {
+  const handleApplyAiTasks = useCallback((tasksToApply: AiTask[]) => {
     if (!aiTargetNodeId || tasksToApply.length === 0) return;
 
     saveToHistory();
     const direction: 'left' | 'right' = 'left';
 
     let headOfChain: MindMapNode | null = null;
-    for (const taskText of tasksToApply) {
+    // Apply tasks in reverse to build the hierarchy chain
+    const reversedTasks = [...tasksToApply].reverse();
+    
+    for (const task of reversedTasks) {
       const newNode: MindMapNode = {
         id: createId(),
-        text: taskText,
-        effort: 1,
+        text: task.subject,
+        startDate: task.start_date || todayIso(),
+        endDate: task.due_date || todayIso(),
+        effort: 1, // Default effort
         direction,
         children: headOfChain ? [headOfChain] : []
       };
@@ -530,33 +492,13 @@ const App: React.FC = () => {
   }, [handleLoadSettings]);
 
   const handleRegisterIssues = useCallback(async () => {
-    // Parent map construction
-    const parentMap = new Map<string, string>();
-    const buildParentMap = (node: MindMapNode) => {
-      node.children.forEach(child => {
-        parentMap.set(child.id, node.id);
-        buildParentMap(child);
-      });
-    };
-    buildParentMap(data);
+    const { tasks: tasksPayload, defaults: registrationDefaults } = buildTaskRegistrationPayload(
+      data,
+      connections,
+      registrationSettings
+    );
 
-    const nodes = flattenNodes(data).filter(node => {
-      // Root node handling
-      if (node.id === 'root') {
-        // If settings explicitly say do NOT create root issue, exclude it
-        if (registrationSettings.create_root_issue === false) {
-          return false;
-        }
-        return true;
-      }
-
-      // Existing node handling (for children or any non-root)
-      if (/^\d+$/.test(node.id)) return false;
-
-      return true;
-    });
-
-    if (nodes.length === 0) {
+    if (tasksPayload.length === 0) {
       setRegisterError(t('redmine_create_tasks.app.register_no_tasks', 'No tasks to register.'));
       setRegisterResult(null);
       return;
@@ -567,68 +509,7 @@ const App: React.FC = () => {
     setRegisterResult(null);
 
     try {
-      const depMap = buildDependencyMap(data, connections);
-      const isDependencyMode = registrationSettings.relation_mode === 'dependency';
-
-      const tasksPayload = nodes.map(node => {
-        // Get explicit dependencies from connections
-        const deps = Array.from(depMap.get(node.id) || []);
-        let parentId = parentMap.get(node.id);
-
-        // Handle root parent
-        if (parentId === 'root') {
-          if (registrationSettings.create_root_issue) {
-            parentId = 'root';
-          } else if (registrationSettings.existing_root_issue_id) {
-            parentId = registrationSettings.existing_root_issue_id;
-          } else {
-            parentId = undefined;
-          }
-        }
-
-        // Map 'root' dependency to actual root ID if needed
-        let finalDeps = [...deps];
-        if (finalDeps.includes('root')) {
-          finalDeps = finalDeps.map(d => {
-            if (d === 'root') {
-              if (registrationSettings.create_root_issue) return 'root';
-              if (registrationSettings.existing_root_issue_id) return registrationSettings.existing_root_issue_id;
-              return undefined;
-            }
-            return d;
-          }).filter(Boolean) as string[];
-        }
-
-        // Ensure unique dependencies
-        const uniqueDeps = Array.from(new Set(finalDeps));
-
-        if (isDependencyMode) {
-          // In dependency mode, parent-child relationships are already mapped to dependencies
-          // via buildDependencyMap. We don't manually push parentId to avoid circular dependency.
-          return {
-            id: node.id,
-            subject: node.text,
-            start_date: node.startDate,
-            due_date: node.endDate,
-            man_days: node.effort,
-            dependencies: uniqueDeps.length > 0 ? uniqueDeps : undefined,
-            // No parent_task_id in dependency mode
-          };
-        } else {
-          // Child mode: use parent_task_id for hierarchy
-          return {
-            id: node.id,
-            subject: node.text,
-            start_date: node.startDate,
-            due_date: node.endDate,
-            man_days: node.effort,
-            dependencies: uniqueDeps.length > 0 ? uniqueDeps : undefined,
-            parent_task_id: parentId
-          };
-        }
-      });
-
-      const finalPayload = { tasks: tasksPayload, defaults: registrationSettings };
+      const finalPayload = { tasks: tasksPayload, defaults: registrationDefaults };
       const result = await registerTasks(getProjectId(), finalPayload);
 
       // Apply ID mapping to visual tree and connections if provided
@@ -695,16 +576,10 @@ const App: React.FC = () => {
       }
     };
 
-    const buildHierarchyDeps = (node: MindMapNode) => {
-      node.children.forEach(child => {
-        addHierarchyDependency(node, child, addDep);
-        buildHierarchyDeps(child);
-      });
-    };
-    buildHierarchyDeps(data);
-
     connections.forEach(conn => {
-      addDep(conn.fromId, conn.toId);
+      if ((conn.type ?? 'dependency') === 'dependency') {
+        addDep(conn.fromId, conn.toId);
+      }
     });
 
     const rootNode = nodesMap.get('root');
@@ -846,6 +721,39 @@ const App: React.FC = () => {
     setCriticalConnIds(cConns);
   }, [data, connections, criticalNodeIds]);
 
+  const handleAlign = useCallback(() => {
+    saveToHistory();
+
+    const clearCoords = (node: MindMapNode): MindMapNode => ({
+      ...node,
+      x: undefined,
+      y: undefined,
+      isFixed: undefined,
+      children: node.children.map(clearCoords)
+    });
+    const strippedData = clearCoords(data);
+
+    const { nodes } = buildTreeLayout(strippedData, connections);
+
+    const coordsMap = new Map<string, { x: number; y: number }>();
+    nodes.forEach(n => {
+      coordsMap.set(n.data.id, { x: n.x, y: n.y });
+    });
+
+    const applyCoords = (node: MindMapNode): MindMapNode => {
+      const coords = coordsMap.get(node.id);
+      return {
+        ...node,
+        x: coords?.x ?? node.x,
+        y: coords?.y ?? node.y,
+        isFixed: false,
+        children: node.children.map(applyCoords)
+      };
+    };
+
+    setData(prev => applyCoords(prev));
+  }, [data, connections, saveToHistory, setData]);
+
   const handleExport = () => {
     const exportData = { title: currentPage.title, pages };
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
@@ -931,8 +839,6 @@ const App: React.FC = () => {
           onDeleteNode={handleDeleteNode}
           onSetEditingId={setNodeToEdit}
           onAddConnection={handleAddConnection}
-          onDeleteConnection={handleDeleteConnection}
-          onDetachNode={handleDetachNode}
           onMoveNode={handleMoveNode}
           registrationSettings={registrationSettings}
         />
@@ -953,6 +859,13 @@ const App: React.FC = () => {
               title={t('redmine_create_tasks.app.focus_leaves', 'Focus Leaves')}
             >
               <MapIcon size={20} />
+            </button>
+            <button
+              onClick={handleAlign}
+              className="p-3 bg-white text-slate-600 rounded-full shadow-md hover:bg-slate-50 transition-all"
+              title={t('redmine_create_tasks.app.align', 'Align')}
+            >
+              <LayoutGrid size={20} />
             </button>
             <button
               onClick={handleUndo}

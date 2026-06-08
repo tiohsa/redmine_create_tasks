@@ -22,8 +22,6 @@ interface Props {
   onDeleteNode: (id: string) => void;
   onSetEditingId: (id: string | null) => void;
   onAddConnection: (fromId: string, toId: string) => void;
-  onDeleteConnection: (connId: string) => void;
-  onDetachNode: (id: string) => void;
   onMoveNode: (childId: string, newParentId: string) => void;
   registrationSettings?: {
     create_root_issue?: boolean;
@@ -66,35 +64,359 @@ const splitTextForDisplay = (text: string): string[] => {
 const NODE_WIDTH = 200;
 const NODE_HEIGHT = 100;
 const EDIT_NODE_HEIGHT = 116;
+const DEPENDENCY_NODE_GAP = 8;
+const MIN_DEPENDENCY_CURVE = 80;
 
-const buildTreeLayout = (data: MindMapNode) => {
-  const treeLayout = d3.tree<MindMapNode>().nodeSize([120, 280]);
+const buildDependencyArrowPath = (
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+): string => {
+  const isLeftToRight = from.x <= to.x;
+  const direction = isLeftToRight ? 1 : -1;
+  const start = {
+    x: from.x + direction * (NODE_WIDTH / 2 + DEPENDENCY_NODE_GAP),
+    y: from.y,
+  };
+  const end = {
+    x: to.x - direction * (NODE_WIDTH / 2 + DEPENDENCY_NODE_GAP),
+    y: to.y,
+  };
+  const midX = (start.x + end.x) / 2;
 
-  const rightChildren = data.children.filter(c => c.direction !== 'left');
-  const rightHierarchy = d3.hierarchy({ ...data, children: rightChildren });
-  const rightRoot = treeLayout(rightHierarchy);
-  const rightNodes = rightRoot.descendants();
-  const rightLinks = rightRoot.links();
+  return `M ${start.x} ${start.y} H ${midX} V ${end.y} H ${end.x}`;
+};
 
-  const leftChildren = data.children.filter(c => c.direction === 'left');
-  let leftNodes: d3.HierarchyPointNode<MindMapNode>[] = [];
-  let leftLinks: d3.HierarchyPointLink<MindMapNode>[] = [];
+export const buildTreeLayout = (data: MindMapNode, connections: Connection[]) => {
+  const treeLayout = d3.tree<MindMapNode>().nodeSize([240, 170]);
+  const root = treeLayout(d3.hierarchy(data));
+  const nodes = root.descendants();
+  const nodeMap = new Map(nodes.map(node => [node.data.id, node]));
 
-  if (leftChildren.length > 0) {
-    const leftHierarchy = d3.hierarchy({ ...data, children: leftChildren });
-    const leftRoot = treeLayout(leftHierarchy);
-    leftNodes = leftRoot.descendants();
-    leftLinks = leftRoot.links();
+  // 1. スワップ (xが縦(深さ)、yが横(兄弟)になる)
+  nodes.forEach(node => {
+    const horizontal = node.x;
+    node.x = node.y;
+    node.y = horizontal;
+  });
 
-    leftNodes.forEach(d => {
-      if (d.data.id !== 'root') d.y = -d.y;
+  // 依存関係の配置計算や衝突回避が手動配置の座標を正しく参照できるよう、事前に反映します。
+  nodes.forEach(node => {
+    if (node.data.x !== undefined && node.data.y !== undefined) {
+      node.x = node.data.x;
+      node.y = node.data.y;
+    }
+  });
+
+  // 2. 依存関係の接続マップを作成
+  const predecessorsMap = new Map<string, string[]>(); // targetId -> fromIds
+  const dependencyFromIds = new Set<string>();
+  connections.forEach(conn => {
+    if ((conn.type ?? 'dependency') !== 'dependency') return;
+    const from = nodeMap.get(conn.fromId);
+    const to = nodeMap.get(conn.toId);
+    if (!from || !to || from.data.id === 'root') return;
+    dependencyFromIds.add(from.data.id);
+    predecessorsMap.set(conn.toId, [...(predecessorsMap.get(conn.toId) ?? []), conn.fromId]);
+  });
+
+  // 3. トポロジカルソート順の決定（帰りがけ順 DFS ＋ 反転）
+  // 依存元（先行）を先に訪問し、帰りがけ順に記録したものを反転することで、
+  // 常に「後続ノードが先、先行ノードが後」という正しいトポロジカルソート順（order）を得ます。
+  const visited = new Set<string>();
+  const temp = new Set<string>();
+  const sorted: string[] = [];
+  let hasCycle = false;
+
+  const visit = (id: string) => {
+    if (temp.has(id)) {
+      hasCycle = true;
+      return; // サイクルガード
+    }
+    if (visited.has(id)) return;
+
+    temp.add(id);
+    const preds = predecessorsMap.get(id) || [];
+    preds.forEach(predId => {
+      visit(predId);
     });
+    temp.delete(id);
+
+    visited.add(id);
+    sorted.push(id);
+  };
+
+  // すべてのノードを訪問
+  nodes.forEach(node => {
+    visit(node.data.id);
+  });
+
+  if (hasCycle) {
+    console.warn("Circular dependency detected in mind map layout. Topological sort may be partially incorrect.");
   }
 
-  const combinedNodes = [...rightNodes, ...leftNodes.filter(d => d.data.id !== 'root')];
-  const combinedLinks = [...rightLinks, ...leftLinks];
+  const order = [...sorted].reverse();
 
-  return { nodes: combinedNodes, links: combinedLinks };
+  // 4. 移動対象の全ノードID（依存元ノードおよびそれらの全子孫ノード）を収集
+  const movingNodeIds = new Set<string>();
+  nodes.forEach(node => {
+    if (dependencyFromIds.has(node.data.id)) {
+      node.descendants().forEach(d => {
+        movingNodeIds.add(d.data.id);
+      });
+    }
+  });
+
+  // 5. 配置済みの確定ノード群を初期化（移動対象ではないノードのみ）
+  const fixedNodes = new Set<d3.HierarchyPointNode<MindMapNode>>(
+    nodes.filter(n => !movingNodeIds.has(n.data.id))
+  );
+
+  // ============================================================
+  // ステップ 1: 各ノードのローカル高さ計算
+  // ============================================================
+  // 各ノードの descendants() から node.x（描画上のY座標 = 兄弟間の縦並び）の
+  // 相対的な上下幅を求める。これは親子関係（子チケット）のみで決まる値。
+  const localHeightMap = new Map<string, { minRelX: number; maxRelX: number; localHeight: number }>();
+  nodes.forEach(node => {
+    const descendants = node.descendants();
+    const relXs = descendants.map(d => d.x - node.x);
+    const minRelX = Math.min(...relXs, 0);
+    const maxRelX = Math.max(...relXs, 0);
+    localHeightMap.set(node.data.id, {
+      minRelX,
+      maxRelX,
+      localHeight: maxRelX - minRelX,
+    });
+  });
+  // ステップ 2: ボトムアップ累積 — totalHeight の構築
+  // ============================================================
+  // sorted（トポロジカル正順: 依存元が先）に沿って、各ノードの totalHeight 境界を計算。
+  const gap = 170; // 垂直方向のノード間隔マージン (d3のnodeSize[1]と同じ)
+  const totalHeightMap = new Map<string, { minRelX: number; maxRelX: number }>();
+
+  // sorted は先行ノードが先（リーフ → ルート方向）
+  sorted.forEach(nodeId => {
+    const local = localHeightMap.get(nodeId);
+    if (!local) return;
+
+    // nodeId をターゲットとする先行グループを取得
+    const predIds = predecessorsMap.get(nodeId) || [];
+    const predecessors = predIds
+      .map(id => nodeMap.get(id))
+      .filter((n): n is d3.HierarchyPointNode<MindMapNode> => !!n);
+
+    if (predecessors.length === 0) {
+      // 先行がない場合は自身のローカル高さ境界をそのまま使用
+      totalHeightMap.set(nodeId, { minRelX: local.minRelX, maxRelX: local.maxRelX });
+      return;
+    }
+
+    // 先行グループがある場合、それぞれの totalHeight（計算済み）を元に
+    // 相対位置をシミュレーションして、グループ全体の広がりを計算
+    const subtrees = predecessors.map(pred => {
+      const th = totalHeightMap.get(pred.data.id) || {
+        minRelX: localHeightMap.get(pred.data.id)!.minRelX,
+        maxRelX: localHeightMap.get(pred.data.id)!.maxRelX,
+      };
+      return {
+        node: pred,
+        minRelX: th.minRelX,
+        maxRelX: th.maxRelX,
+      };
+    });
+
+    let currentX = 0;
+    const positions: number[] = [];
+    subtrees.forEach((subtree, index) => {
+      if (index > 0) {
+        const prev = subtrees[index - 1];
+        currentX += prev.maxRelX + gap - subtree.minRelX;
+      }
+      positions.push(currentX);
+    });
+
+    // センタリング
+    const totalMin = positions[0] + subtrees[0].minRelX;
+    const totalMax = positions[positions.length - 1] + subtrees[subtrees.length - 1].maxRelX;
+    const centerX = (totalMin + totalMax) / 2;
+
+    // nodeId（ターゲット）から見た先行グループ全体の相対的な広がり
+    const groupMin = totalMin - centerX;
+    const groupMax = totalMax - centerX;
+
+    // nodeId 自身のローカルな広がりと先行グループの広がりをマージ
+    const mergedMin = Math.min(local.minRelX, groupMin);
+    const mergedMax = Math.max(local.maxRelX, groupMax);
+
+    totalHeightMap.set(nodeId, { minRelX: mergedMin, maxRelX: mergedMax });
+  });
+
+  // ============================================================
+  // ステップ 3: 配置適用 — totalHeight を使った垂直間隔決定
+  // ============================================================
+  order.forEach(targetId => {
+    const target = nodeMap.get(targetId);
+    if (!target) return;
+
+    const predIds = predecessorsMap.get(targetId) || [];
+    const predecessors = predIds
+      .map(id => nodeMap.get(id))
+      .filter((n): n is d3.HierarchyPointNode<MindMapNode> => !!n);
+
+    if (predecessors.length === 0) return;
+
+    // 各先行ノードのサブツリー情報と累積された totalHeight 境界を取得
+    const subtrees = predecessors.map(pred => {
+      const th = totalHeightMap.get(pred.data.id) || {
+        minRelX: localHeightMap.get(pred.data.id)!.minRelX,
+        maxRelX: localHeightMap.get(pred.data.id)!.maxRelX,
+      };
+      return {
+        node: pred,
+        minRelX: th.minRelX,
+        maxRelX: th.maxRelX,
+      };
+    });
+
+    // 垂直方向の相対位置を決定（各サブツリーの totalHeight を使って間隔を確保）
+    let currentX = 0; // node.x = 描画上Y座標
+    const positions: number[] = [];
+
+    subtrees.forEach((subtree, index) => {
+      if (index > 0) {
+        const prev = subtrees[index - 1];
+        // 前のサブツリーの下端 + マージン
+        currentX += prev.maxRelX + gap - subtree.minRelX;
+      }
+      positions.push(currentX);
+    });
+
+    // センタリング: 依存元グループ全体の中心が target.x になるようにする
+    const totalMin = positions[0] + subtrees[0].minRelX;
+    const totalMax = positions[positions.length - 1] + subtrees[subtrees.length - 1].maxRelX;
+    const centerX = (totalMin + totalMax) / 2;
+    const offsetToTarget = target.x - centerX;
+
+    // 配置グループに属する全ノードIDのセット（自己衝突判定から除外するため）
+    const currentGroupNodeIds = new Set<string>();
+    subtrees.forEach(subtree => {
+      subtree.node.descendants().forEach(desc => {
+        currentGroupNodeIds.add(desc.data.id);
+      });
+    });
+
+    // パフォーマンス改善: 現在の配置グループ以外の固定ノードを抽出（配列変換はここで1回だけ）
+    const otherFixedNodes = Array.from(fixedNodes).filter(fixed => !currentGroupNodeIds.has(fixed.data.id));
+
+    // 全サブツリーの子孫ノードの相対座標と衝突候補を事前計算
+    const groupDescInfos: { relX: number; potentialColliders: d3.HierarchyPointNode<MindMapNode>[] }[] = [];
+
+    subtrees.forEach((subtree, index) => {
+      const baseX = positions[index] + offsetToTarget; // グループ内でのこのサブツリーの node.x
+      const baseY = target.y - 300;                     // 共通の node.y
+
+      subtree.node.descendants().forEach(desc => {
+        const descRelX = desc.x - subtree.node.x;
+        const descRelY = desc.y - subtree.node.y;
+        const descTestY = baseY + descRelY;
+
+        // すでに固定された他のノードから、描画上X座標（依存関係の深さ）が近いものを抽出
+        const potentialColliders = otherFixedNodes.filter(fixed => {
+          return Math.abs(descTestY - fixed.y) < 240;
+        });
+
+        groupDescInfos.push({
+          relX: baseX + descRelX, // グループ原点(offsetToTarget=0時)からの相対 node.x
+          potentialColliders,
+        });
+      });
+    });
+
+    // 衝突回避（安全ネット）: グループ全体を1つの塊として上下にずらす
+    let groupShift = 0;
+    let step = 0;
+    let collision = true;
+    const MAX_STEPS = 100; // 無限ループ防止用の最大ステップ数
+
+    while (collision && step < MAX_STEPS) {
+      collision = false;
+
+      if (step === 0) {
+        groupShift = 0;
+      } else {
+        const magnitude = Math.floor((step + 1) / 2) * gap;
+        const sign = step % 2 === 1 ? 1 : -1;
+        groupShift = magnitude * sign;
+      }
+
+      for (const info of groupDescInfos) {
+        const testX = info.relX + groupShift;
+
+        for (const fixed of info.potentialColliders) {
+          const dy = Math.abs(testX - fixed.x);
+
+          if (dy < gap) {
+            collision = true;
+            break;
+          }
+        }
+        if (collision) break;
+      }
+
+      if (collision) {
+        step++;
+      }
+    }
+
+    if (step >= MAX_STEPS) {
+      console.error(
+        `Layout safety net failed to resolve collision: predecessor group of "${targetId}" reached maximum search steps (${MAX_STEPS}).`
+      );
+    } else if (step > 0) {
+      console.warn(
+        `Layout safety net triggered: predecessor group of "${targetId}" shifted by ${groupShift}px ` +
+        `(${step} steps) to avoid collision with fixed nodes. ` +
+        `This may indicate incomplete bottom-up space reservation.`
+      );
+    }
+
+    // 実際の平行移動の適用
+    subtrees.forEach((subtree, index) => {
+      const nextX = positions[index] + offsetToTarget + groupShift;
+      const nextY = target.y - 240;
+
+      const deltaX = nextX - subtree.node.x;
+      const deltaY = nextY - subtree.node.y;
+
+      subtree.node.descendants().forEach(descendant => {
+        descendant.x += deltaX;
+        descendant.y += deltaY;
+      });
+
+      // 配置完了したノードを fixedNodes に追加（以降の衝突判定に反映）
+      subtree.node.descendants().forEach(descendant => {
+        fixedNodes.add(descendant);
+      });
+    });
+  });
+
+  const links = root.links().filter(link => !dependencyFromIds.has(link.target.data.id));
+
+  // すべてのノードの座標をグリッド（横240px、縦170pxステップ）にスナップさせて整列
+  nodes.forEach(node => {
+    node.y = Math.round(node.y / 240) * 240;
+    node.x = Math.round(node.x / 170) * 170;
+  });
+
+  // データにすでに x, y が定義されている場合は、その場所で描画する
+  nodes.forEach(node => {
+    if (node.data.x !== undefined && node.data.y !== undefined) {
+      node.x = node.data.x;
+      node.y = node.data.y;
+    }
+  });
+
+  return { nodes, links };
 };
 
 const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
@@ -110,8 +432,6 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
   onDeleteNode,
   onSetEditingId,
   onAddConnection,
-  onDeleteConnection,
-  onDetachNode,
   onMoveNode,
   registrationSettings
 }, ref) => {
@@ -125,8 +445,9 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [hoveredHandle, setHoveredHandle] = useState<'leftDependency' | 'bottomChild' | null>(null);
 
-  const { nodes, links } = useMemo(() => buildTreeLayout(data), [data]);
+  const { nodes, links } = useMemo(() => buildTreeLayout(data, connections), [data, connections]);
 
   useEffect(() => {
     if (!svgRef.current || !zoomContainerRef.current) return;
@@ -228,16 +549,24 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
-    if (dragSourceId && hoveredNodeId && dragSourceId !== hoveredNodeId) {
-      if (dragMode === 'connection') {
-        onAddConnection(dragSourceId, hoveredNodeId);
-      } else if (dragMode === 'move') {
-        onMoveNode(dragSourceId, hoveredNodeId);
+    if (dragSourceId && dragMode === 'move') {
+      if (hoveredNodeId && dragSourceId !== hoveredNodeId) {
+        if (hoveredHandle === 'leftDependency') {
+          onAddConnection(dragSourceId, hoveredNodeId);
+        } else if (hoveredHandle === 'bottomChild') {
+          onMoveNode(dragSourceId, hoveredNodeId);
+        }
+      } else {
+        // カスタムドロップ位置にドロップされた場合
+        const newY = mousePos.x - dragOffset.x;
+        const newX = mousePos.y - dragOffset.y;
+        onUpdateNodeData(dragSourceId, { x: newX, y: newY, isFixed: true });
       }
     }
     setDragSourceId(null);
     setDragMode(null);
     setHoveredNodeId(null);
+    setHoveredHandle(null);
   };
 
   const getNodePos = (id: string) => {
@@ -257,12 +586,25 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
           onSetEditingId(null);
         }}
       >
+        <defs>
+          <marker
+            id="dependency-arrow"
+            markerWidth="6"
+            markerHeight="6"
+            refX="5.25"
+            refY="3"
+            orient="auto"
+            markerUnits="strokeWidth"
+          >
+            <path d="M 0 0 L 6 3 L 0 6 z" className="fill-sky-600" />
+          </marker>
+        </defs>
         <g ref={zoomContainerRef} className="zoom-container">
           {/* Hierarchy Links */}
           {links.map((link) => {
-            const pathGen = d3.linkHorizontal<any, any>()
-              .x((d: any) => d.y)
-              .y((d: any) => d.x);
+              const pathGen = d3.linkVertical<any, any>()
+                .x((d: any) => d.y)
+                .y((d: any) => d.x);
 
             const source = link.source.data;
             const target = link.target.data;
@@ -274,66 +616,32 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
               addDays(target.endDate, 1) === source.startDate;
 
             return (
-              <g key={`link-group-${source.id}-${target.id}`} className="group/link">
-                {/* 判定用の太い透明な線 - onMouseDown で処理 */}
-                <path
-                  d={dPath || undefined}
-                  fill="none"
-                  stroke="rgba(0,0,0,0)"
-                  strokeWidth="24"
-                  pointerEvents="stroke"
-                  className="cursor-pointer"
-                  onMouseDown={(e) => {
-                    e.stopPropagation();
-                    const targetTitle = /^\d+$/.test(target.id) ? `#${target.id} ${target.text}` : target.text;
-                    if (window.confirm(
-                      t(
-                        'redmine_create_tasks.canvas.detach_confirm',
-                        'Detach connection to "%{title}"?\n(The node will move under the root.)',
-                        { title: targetTitle }
-                      )
-                    )) {
-                      onDetachNode(target.id);
-                    }
-                  }}
-                />
+              <g key={`link-group-${source.id}-${target.id}`}>
                 {/* 実際に表示される線 */}
                 <path
                   d={dPath || undefined}
-                  className={`mindmap-link transition-all duration-300 pointer-events-none stroke-[3px] group-hover/link:stroke-rose-500 group-hover/link:stroke-[4px] ${isCriticalPath ? 'stroke-orange-500 stroke-[4px] opacity-100' : 'stroke-slate-900 opacity-100'}`}
+                  className={`mindmap-link transition-all duration-300 pointer-events-none stroke-[3px] ${isCriticalPath ? 'stroke-orange-500 stroke-[4px] opacity-100' : 'stroke-slate-900 opacity-100'}`}
                 />
               </g>
             );
           })}
 
           {/* Custom Connections */}
-          {connections.map((conn) => {
-            const from = getNodePos(conn.fromId);
-            const to = getNodePos(conn.toId);
-            const dx = to.x - from.x;
-            const midX = from.x + dx / 2;
-            const path = `M ${from.x} ${from.y} C ${midX} ${from.y}, ${midX} ${to.y}, ${to.x} ${to.y}`;
+          {connections
+            .filter((conn) => (conn.type ?? 'dependency') === 'dependency')
+            .map((conn) => {
+              const from = getNodePos(conn.fromId);
+              const to = getNodePos(conn.toId);
+              const path = buildDependencyArrowPath(from, to);
             const isCritical = criticalConnIds.has(conn.id);
 
             return (
-              <g key={`conn-group-${conn.id}`} className="group/conn">
-                {/* 判定用の太い透明な線 - onMouseDown で処理 */}
-                <path
-                  d={path}
-                  fill="none"
-                  stroke="rgba(0,0,0,0)"
-                  strokeWidth="24"
-                  pointerEvents="stroke"
-                  className="cursor-pointer"
-                  onMouseDown={(e) => {
-                    e.stopPropagation();
-                    onDeleteConnection(conn.id);
-                  }}
-                />
+              <g key={`conn-group-${conn.id}`}>
                 {/* 実際に表示される線 */}
                 <path
                   d={path}
-                  className={`custom-connector transition-all duration-300 pointer-events-none stroke-[3px] group-hover/conn:stroke-rose-500 group-hover/conn:stroke-[4px] ${isCritical ? 'stroke-orange-500 stroke-[4.5px] opacity-100 shadow-[0_0_10px_orange]' : 'stroke-slate-900 opacity-100'}`}
+                  markerEnd="url(#dependency-arrow)"
+                  className={`custom-connector transition-all duration-300 pointer-events-none stroke-[3px] ${isCritical ? 'stroke-orange-500 stroke-[4.5px] opacity-100 shadow-[0_0_10px_orange]' : 'stroke-slate-900 opacity-100'}`}
                 />
               </g>
             );
@@ -371,9 +679,10 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
             const direction = node.data.direction;
 
             return (
-              <g
-                key={node.data.id}
-                transform={`translate(${node.y}, ${node.x})`}
+                  <g
+                    key={node.data.id}
+                    data-testid={`mindmap-node-${node.data.id}`}
+                    transform={`translate(${node.y}, ${node.x})`}
                 className="mindmap-node cursor-pointer group"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -383,8 +692,6 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                   e.stopPropagation();
                   onSetEditingId(node.data.id);
                 }}
-                onMouseEnter={() => dragSourceId && dragSourceId !== node.data.id && setHoveredNodeId(node.data.id)}
-                onMouseLeave={() => setHoveredNodeId(null)}
               >
                 <rect
                   x={-NODE_WIDTH / 2}
@@ -401,6 +708,7 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                     ${isEditing ? 'opacity-0 pointer-events-none' : 'opacity-100'}
                   `}
                   data-node-drag="true"
+                  data-testid={`node-drag-${node.data.id}`}
                   onMouseDown={(e) => {
                     e.stopPropagation();
                     e.preventDefault();
@@ -677,41 +985,28 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                   <circle
                     r="15"
                     fill="transparent"
-                    className="cursor-crosshair"
+                    className="cursor-pointer"
                     data-handle="true"
-                    onMouseDown={(e) => {
+                    data-testid={`bottom-child-handle-${node.data.id}`}
+                    onMouseEnter={() => {
+                      if (dragSourceId && dragSourceId !== node.data.id) {
+                        setHoveredNodeId(node.data.id);
+                        setHoveredHandle('bottomChild');
+                      }
+                    }}
+                    onMouseLeave={() => {
+                      setHoveredNodeId(null);
+                      setHoveredHandle(null);
+                    }}
+                    onClick={(e) => {
                       e.stopPropagation();
-                      e.preventDefault();
-                      if (!zoomContainerRef.current) return;
-                      const pt = d3.pointer(e, zoomContainerRef.current);
-                      setDragSourceId(node.data.id);
-                      setDragMode('connection');
-                      setMousePos({ x: pt[0], y: pt[1] });
+                      onAddNode(node.data.id);
                     }}
                   />
                 </g>
 
                 <g className={`transition-opacity duration-200 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                  {(isRoot || direction === 'right') && (
-                    <g transform={`translate(${NODE_WIDTH / 2 + 5}, 0)`} className="group/btn">
-                      <g className="transition-transform duration-200 group-hover/btn:scale-125 pointer-events-none" style={{ transformBox: 'fill-box', transformOrigin: 'center' }}>
-                        <circle r="10" className="fill-blue-500 stroke-white stroke-2 shadow-md" />
-                        <line x1="-4" y1="0" x2="4" y2="0" stroke="white" strokeWidth="2" strokeLinecap="round" />
-                        <line x1="0" y1="-4" x2="0" y2="4" stroke="white" strokeWidth="2" strokeLinecap="round" />
-                      </g>
-                      <circle
-                        r="20"
-                        fill="transparent"
-                        className="cursor-pointer"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onAddNode(node.data.id, 'right');
-                        }}
-                      />
-                    </g>
-                  )}
-
-                  {(isRoot || direction === 'left') && (
+                  {(
                     <g transform={`translate(${-NODE_WIDTH / 2 - 5}, 0)`} className="group/btn">
                       <g className="transition-transform duration-200 group-hover/btn:scale-125 pointer-events-none" style={{ transformBox: 'fill-box', transformOrigin: 'center' }}>
                         <circle r="10" className="fill-blue-500 stroke-white stroke-2 shadow-md" />
@@ -722,6 +1017,17 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
                         r="20"
                         fill="transparent"
                         className="cursor-pointer"
+                        data-testid={`left-dependency-handle-${node.data.id}`}
+                        onMouseEnter={() => {
+                          if (dragSourceId && dragSourceId !== node.data.id) {
+                            setHoveredNodeId(node.data.id);
+                            setHoveredHandle('leftDependency');
+                          }
+                        }}
+                        onMouseLeave={() => {
+                          setHoveredNodeId(null);
+                          setHoveredHandle(null);
+                        }}
                         onClick={(e) => {
                           e.stopPropagation();
                           onAddNode(node.data.id, 'left');

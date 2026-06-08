@@ -38,6 +38,7 @@ ja:
       focus_root: 成果物にフォーカス
       focus_leaves: 終端にフォーカス
       undo: 元に戻す
+      align: 整列
       export: エクスポート
       fullscreen: フルスクリーン切替
       register_settings: チケット設定
@@ -95,11 +96,6 @@ ja:
       load: 読み込み
       load_error: 詳細が見つかりませんでした。
       cannot_use_closed: 終了したチケット
-      relation_mode_label: 関連付けモード
-      relation_mode_child: 子チケットとして登録
-      relation_mode_child_desc: マインドマップの親子関係をRedmineの親子チケットとして登録します
-      relation_mode_dependency: 依存関係として登録
-      relation_mode_dependency_desc: マインドマップの親子関係をRedmineの先行/後続関係として登録します
       close: 閉じる
       cancel: キャンセル
       save: 保存する
@@ -146,4 +142,3 @@ ja:
       rename_page: ページ名を変更
       page_count: "%{current} / %{total}"
       cannot_delete_last: 最後のページは削除できません
-

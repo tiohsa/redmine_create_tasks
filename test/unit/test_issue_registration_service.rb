@@ -62,6 +62,53 @@ class IssueRegistrationServiceTest < ActiveSupport::TestCase
     assert_nil child_issue.parent_id
   end
 
+  def test_register_applies_dependencies_and_hierarchy_in_same_call
+    tasks = [
+      { id: 'parent', subject: 'Parent Task' },
+      { id: 'predecessor', subject: 'Predecessor Task' },
+      { id: 'child', subject: 'Child Task', parent_task_id: 'parent', dependencies: ['predecessor'] }
+    ]
+
+    result = @service.register(tasks, { relation_mode: 'dependency' })
+
+    assert_equal 3, result.success_count
+    assert_empty result.failures
+
+    parent_issue = Issue.find_by(subject: 'Parent Task')
+    predecessor_issue = Issue.find_by(subject: 'Predecessor Task')
+    child_issue = Issue.find_by(subject: 'Child Task')
+
+    assert_equal parent_issue.id, child_issue.parent_id
+    assert IssueRelation.where(
+      issue_from_id: predecessor_issue.id,
+      issue_to_id: child_issue.id,
+      relation_type: 'precedes'
+    ).exists?
+  end
+
+  def test_register_does_not_duplicate_existing_precedes_relation
+    predecessor_issue = Issue.generate!(project: @project, subject: 'Existing Predecessor', status_id: 1)
+    tasks = [
+      {
+        id: 'child',
+        subject: 'New Child',
+        dependencies: [predecessor_issue.id.to_s, predecessor_issue.id.to_s]
+      }
+    ]
+
+    result = @service.register(tasks)
+
+    assert_equal 1, result.success_count
+    assert_empty result.failures
+    child_issue = Issue.find_by(subject: 'New Child')
+
+    assert_equal 1, IssueRelation.where(
+      issue_from_id: predecessor_issue.id,
+      issue_to_id: child_issue.id,
+      relation_type: 'precedes'
+    ).count
+  end
+
   private
 
   def warnings_for(result, task_id)

@@ -9,6 +9,9 @@ export interface MindMapNode {
   direction?: 'left' | 'right';
   isAIExpanding?: boolean;
   isRoot?: boolean;
+  x?: number;
+  y?: number;
+  isFixed?: boolean;
 }
 
 declare global {
@@ -27,6 +30,9 @@ export interface Connection {
   id: string;
   fromId: string;
   toId: string;
+  type?: 'dependency';
+  sourceHandle?: 'leftDependency';
+  targetHandle?: 'leftDependency';
 }
 
 export interface Page {
@@ -41,6 +47,12 @@ export interface Point {
   y: number;
 }
 
+export interface AiTask {
+  subject: string;
+  start_date?: string;
+  due_date?: string;
+}
+
 export interface TaskRegistrationTask {
   id: string;
   subject: string;
@@ -48,6 +60,7 @@ export interface TaskRegistrationTask {
   due_date?: string;
   man_days?: number;
   dependencies?: string[];
+  parent_task_id?: string;
 }
 
 export interface TaskRegistrationPayload {
