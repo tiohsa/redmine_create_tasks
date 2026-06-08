@@ -38,6 +38,7 @@ en:
       focus_root: Focus Root
       focus_leaves: Focus Leaves
       undo: Undo
+      align: Align
       export: Export
       fullscreen: Toggle Fullscreen
       register_settings: Registration Settings

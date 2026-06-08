@@ -81,14 +81,12 @@ const buildDependencyArrowPath = (
     x: to.x - direction * (NODE_WIDTH / 2 + DEPENDENCY_NODE_GAP),
     y: to.y,
   };
-  const curve = Math.max(MIN_DEPENDENCY_CURVE, Math.abs(end.x - start.x) / 2);
-  const startControlX = start.x + direction * curve;
-  const endControlX = end.x - direction * curve;
+  const midX = (start.x + end.x) / 2;
 
-  return `M ${start.x} ${start.y} C ${startControlX} ${start.y}, ${endControlX} ${end.y}, ${end.x} ${end.y}`;
+  return `M ${start.x} ${start.y} H ${midX} V ${end.y} H ${end.x}`;
 };
 
-const buildTreeLayout = (data: MindMapNode, connections: Connection[]) => {
+export const buildTreeLayout = (data: MindMapNode, connections: Connection[]) => {
   const treeLayout = d3.tree<MindMapNode>().nodeSize([240, 170]);
   const root = treeLayout(d3.hierarchy(data));
   const nodes = root.descendants();
@@ -99,25 +97,13 @@ const buildTreeLayout = (data: MindMapNode, connections: Connection[]) => {
     const horizontal = node.x;
     node.x = node.y;
     node.y = horizontal;
+  });
 
-    // 依存関係の有無に関わらず、left 属性を持つノード（およびその子孫）は初期配置で左側に、
-    // right 属性を持つノードは右側に強制的に分離配置します（対称ツリー配置）。
-    if (node.data.id !== 'root') {
-      let isLeft = false;
-      let curr: d3.HierarchyPointNode<MindMapNode> | null = node;
-      while (curr) {
-        if (curr.data.direction === 'left') {
-          isLeft = true;
-          break;
-        }
-        curr = curr.parent;
-      }
-
-      if (isLeft) {
-        node.y = -Math.abs(node.y);
-      } else {
-        node.y = Math.abs(node.y);
-      }
+  // 依存関係の配置計算や衝突回避が手動配置の座標を正しく参照できるよう、事前に反映します。
+  nodes.forEach(node => {
+    if (node.data.x !== undefined && node.data.y !== undefined) {
+      node.x = node.data.x;
+      node.y = node.data.y;
     }
   });
 
@@ -397,7 +383,7 @@ const buildTreeLayout = (data: MindMapNode, connections: Connection[]) => {
     // 実際の平行移動の適用
     subtrees.forEach((subtree, index) => {
       const nextX = positions[index] + offsetToTarget + groupShift;
-      const nextY = target.y - 300;
+      const nextY = target.y - 240;
 
       const deltaX = nextX - subtree.node.x;
       const deltaY = nextY - subtree.node.y;
@@ -415,6 +401,20 @@ const buildTreeLayout = (data: MindMapNode, connections: Connection[]) => {
   });
 
   const links = root.links().filter(link => !dependencyFromIds.has(link.target.data.id));
+
+  // すべてのノードの座標をグリッド（横240px、縦170pxステップ）にスナップさせて整列
+  nodes.forEach(node => {
+    node.y = Math.round(node.y / 240) * 240;
+    node.x = Math.round(node.x / 170) * 170;
+  });
+
+  // データにすでに x, y が定義されている場合は、その場所で描画する
+  nodes.forEach(node => {
+    if (node.data.x !== undefined && node.data.y !== undefined) {
+      node.x = node.data.x;
+      node.y = node.data.y;
+    }
+  });
 
   return { nodes, links };
 };
@@ -549,11 +549,18 @@ const MindMapCanvas = forwardRef<MindMapCanvasHandle, Props>(({
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
-    if (dragSourceId && hoveredNodeId && dragSourceId !== hoveredNodeId) {
-      if (dragMode === 'move' && hoveredHandle === 'leftDependency') {
-        onAddConnection(dragSourceId, hoveredNodeId);
-      } else if (dragMode === 'move' && hoveredHandle === 'bottomChild') {
-        onMoveNode(dragSourceId, hoveredNodeId);
+    if (dragSourceId && dragMode === 'move') {
+      if (hoveredNodeId && dragSourceId !== hoveredNodeId) {
+        if (hoveredHandle === 'leftDependency') {
+          onAddConnection(dragSourceId, hoveredNodeId);
+        } else if (hoveredHandle === 'bottomChild') {
+          onMoveNode(dragSourceId, hoveredNodeId);
+        }
+      } else {
+        // カスタムドロップ位置にドロップされた場合
+        const newY = mousePos.x - dragOffset.x;
+        const newX = mousePos.y - dragOffset.y;
+        onUpdateNodeData(dragSourceId, { x: newX, y: newY, isFixed: true });
       }
     }
     setDragSourceId(null);

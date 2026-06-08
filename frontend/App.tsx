@@ -1,8 +1,8 @@
 
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { MindMapNode, Connection, TaskRegistrationResult, Page } from './types';
-import MindMapCanvas, { MindMapCanvasHandle } from './components/MindMapCanvas';
-import { Plus, Trash2, Cpu, Download, Undo, CalendarRange, Workflow, Target, Map as MapIcon, Send, Settings, Save, X, Maximize, Minimize } from 'lucide-react';
+import MindMapCanvas, { MindMapCanvasHandle, buildTreeLayout } from './components/MindMapCanvas';
+import { Plus, Trash2, Cpu, Download, Undo, CalendarRange, Workflow, Target, Map as MapIcon, Send, Settings, Save, X, Maximize, Minimize, LayoutGrid } from 'lucide-react';
 import { expandNodeWithAI } from './services/geminiService';
 import { expandNodeWithAzureOpenAi } from './services/azureOpenAiService';
 import { calculateCriticalPath } from './utils/cpm';
@@ -78,7 +78,10 @@ const flattenNodes = (node: MindMapNode): MindMapNode[] => [
   ...node.children.flatMap(flattenNodes)
 ];
 
-
+const hasNodesWithoutCoords = (node: MindMapNode): boolean => {
+  if (node.x === undefined || node.y === undefined) return true;
+  return node.children.some(hasNodesWithoutCoords);
+};
 
 const App: React.FC = () => {
   const [pages, setPages] = useState<Page[]>(() => {
@@ -174,7 +177,44 @@ const App: React.FC = () => {
     loadMasterData();
   }, []);
 
+  const migratedPagesRef = useRef<Set<string>>(new Set());
 
+  // 初期マイグレーション
+  useEffect(() => {
+    const pageId = currentPage?.id;
+    if (!pageId || migratedPagesRef.current.has(pageId)) return;
+
+    if (data && hasNodesWithoutCoords(data)) {
+      const stripCoords = (node: MindMapNode): MindMapNode => ({
+        ...node,
+        x: undefined,
+        y: undefined,
+        isFixed: undefined,
+        children: node.children.map(stripCoords)
+      });
+      const strippedData = stripCoords(data);
+      const { nodes } = buildTreeLayout(strippedData, connections);
+      
+      const coordsMap = new Map<string, { x: number; y: number }>();
+      nodes.forEach(n => {
+        coordsMap.set(n.data.id, { x: n.x, y: n.y });
+      });
+
+      const applyCoords = (node: MindMapNode): MindMapNode => {
+        const coords = coordsMap.get(node.id);
+        return {
+          ...node,
+          x: coords?.x ?? node.x,
+          y: coords?.y ?? node.y,
+          isFixed: false,
+          children: node.children.map(applyCoords)
+        };
+      };
+
+      setData(prev => applyCoords(prev));
+    }
+    migratedPagesRef.current.add(pageId);
+  }, [currentPageIndex, currentPage?.id, data, connections, setData]);
 
   useEffect(() => {
     const saveData = {
@@ -204,19 +244,39 @@ const App: React.FC = () => {
     saveToHistory();
     const newNodeId = createId();
 
-    const findDirection = (node: MindMapNode): 'left' | 'right' | undefined => {
-      if (node.id === parentId) return node.direction;
-      for (const child of node.children) {
-        const d = findDirection(child);
-        if (d) return d;
-      }
-      return undefined;
-    };
+    const parentNode = findNodeById(data, parentId);
+    let px = parentNode?.x ?? 0;
+    let py = parentNode?.y ?? 0;
 
-    const parentDirection = parentId === 'root' ? direction : findDirection(data);
-    // direction is a visual layout hint only.
-    // Relationship semantics are determined by children and dependency connections.
-    const finalDirection = parentDirection || direction || 'right';
+    // 親ノードが自動配置（x, y が未定義）の場合も含め、現在のレイアウト計算結果から正確な描画位置を取得します。
+    const { nodes: currentLayoutNodes } = buildTreeLayout(data, connections);
+    const layoutNode = currentLayoutNodes.find(n => n.data.id === parentId);
+    if (layoutNode) {
+      px = layoutNode.x;
+      py = layoutNode.y;
+    }
+
+    let targetX = px;
+    let targetY = py;
+
+    if (direction === 'left') {
+      targetX = px;
+      targetY = py - 240;
+    } else {
+      targetX = px + 170;
+      targetY = py;
+    }
+
+    // 衝突回避（表示されているすべてのノードの実位置と比較）
+    let collision = true;
+    while (collision) {
+      collision = currentLayoutNodes.some(n => n.x === targetX && n.y === targetY);
+      if (collision) {
+        targetX += 170;
+      }
+    }
+
+    const finalDirection = 'left';
 
     const newNode: MindMapNode = {
       id: newNodeId,
@@ -225,7 +285,10 @@ const App: React.FC = () => {
       endDate: todayIso(),
       effort: 1,
       children: [],
-      direction: finalDirection
+      direction: finalDirection,
+      x: direction === 'left' ? undefined : targetX,
+      y: direction === 'left' ? undefined : targetY,
+      isFixed: direction === 'left' ? false : true
     };
 
     if (direction === 'left') {
@@ -253,7 +316,7 @@ const App: React.FC = () => {
 
     setSelectedNodeId(newNodeId);
     setNodeToEdit(newNodeId);
-  }, [data, saveToHistory]);
+  }, [data, connections, saveToHistory, setData, setConnections]);
 
   const handleDeleteNode = useCallback((id: string) => {
     if (id === 'root') return;
@@ -658,6 +721,39 @@ const App: React.FC = () => {
     setCriticalConnIds(cConns);
   }, [data, connections, criticalNodeIds]);
 
+  const handleAlign = useCallback(() => {
+    saveToHistory();
+
+    const clearCoords = (node: MindMapNode): MindMapNode => ({
+      ...node,
+      x: undefined,
+      y: undefined,
+      isFixed: undefined,
+      children: node.children.map(clearCoords)
+    });
+    const strippedData = clearCoords(data);
+
+    const { nodes } = buildTreeLayout(strippedData, connections);
+
+    const coordsMap = new Map<string, { x: number; y: number }>();
+    nodes.forEach(n => {
+      coordsMap.set(n.data.id, { x: n.x, y: n.y });
+    });
+
+    const applyCoords = (node: MindMapNode): MindMapNode => {
+      const coords = coordsMap.get(node.id);
+      return {
+        ...node,
+        x: coords?.x ?? node.x,
+        y: coords?.y ?? node.y,
+        isFixed: false,
+        children: node.children.map(applyCoords)
+      };
+    };
+
+    setData(prev => applyCoords(prev));
+  }, [data, connections, saveToHistory, setData]);
+
   const handleExport = () => {
     const exportData = { title: currentPage.title, pages };
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
@@ -763,6 +859,13 @@ const App: React.FC = () => {
               title={t('redmine_create_tasks.app.focus_leaves', 'Focus Leaves')}
             >
               <MapIcon size={20} />
+            </button>
+            <button
+              onClick={handleAlign}
+              className="p-3 bg-white text-slate-600 rounded-full shadow-md hover:bg-slate-50 transition-all"
+              title={t('redmine_create_tasks.app.align', 'Align')}
+            >
+              <LayoutGrid size={20} />
             </button>
             <button
               onClick={handleUndo}

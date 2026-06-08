@@ -173,11 +173,11 @@ test('renders dependency arrows from the source edge to the target edge', () => 
 
   const path = arrow?.getAttribute('d') || '';
   const match = path.match(
-    /^M ([-\d.]+) ([-\d.]+) C [-\d.]+ [-\d.]+, [-\d.]+ [-\d.]+, ([-\d.]+) ([-\d.]+)$/,
+    /^M ([-\d.]+) ([-\d.]+) H ([-\d.]+) V ([-\d.]+) H ([-\d.]+)$/,
   );
   expect(match).not.toBeNull();
 
-  const [, startXRaw, startYRaw, endXRaw, endYRaw] = match || [];
+  const [, startXRaw, startYRaw, , endYRaw, endXRaw] = match || [];
   const start = { x: Number(startXRaw), y: Number(startYRaw) };
   const end = { x: Number(endXRaw), y: Number(endYRaw) };
   const from = getNodeTranslate('a');

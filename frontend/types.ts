@@ -9,6 +9,9 @@ export interface MindMapNode {
   direction?: 'left' | 'right';
   isAIExpanding?: boolean;
   isRoot?: boolean;
+  x?: number;
+  y?: number;
+  isFixed?: boolean;
 }
 
 declare global {

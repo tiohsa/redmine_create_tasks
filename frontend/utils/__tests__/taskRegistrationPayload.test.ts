@@ -153,4 +153,34 @@ describe('buildTaskRegistrationPayload', () => {
     expect(childTask).toBeDefined();
     expect(childTask?.parent_task_id).toBeUndefined();
   });
+
+  test('dependency predecessor of non-root target stored under root is not registered as root child', () => {
+    const data: MindMapNode = {
+      id: 'root',
+      text: 'Final Deliverable',
+      children: [
+        { id: 'task-a', text: 'Task A', children: [] },
+        { id: 'pred-b', text: 'Predecessor B', direction: 'left', children: [] },
+      ],
+    };
+
+    const connections: Connection[] = [
+      { id: 'conn-b-a', fromId: 'pred-b', toId: 'task-a', type: 'dependency' },
+    ];
+
+    const settings: RegistrationSettings = {
+      create_root_issue: true,
+    };
+
+    const payload = buildTaskRegistrationPayload(data, connections, settings);
+
+    const predecessor = payload.tasks.find(t => t.id === 'pred-b');
+    const target = payload.tasks.find(t => t.id === 'task-a');
+
+    expect(predecessor).toBeDefined();
+    expect(predecessor?.parent_task_id).toBeUndefined();
+
+    expect(target).toBeDefined();
+    expect(target?.dependencies).toContain('pred-b');
+  });
 });

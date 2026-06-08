@@ -38,6 +38,7 @@ ja:
       focus_root: 成果物にフォーカス
       focus_leaves: 終端にフォーカス
       undo: 元に戻す
+      align: 整列
       export: エクスポート
       fullscreen: フルスクリーン切替
       register_settings: チケット設定

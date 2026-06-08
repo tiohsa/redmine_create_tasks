@@ -58,13 +58,19 @@ export function buildTaskRegistrationPayload(
   const tasksPayload = nodes.map(node => {
     const deps = Array.from(depMap.get(node.id) || []);
     let parentId = parentMap.get(node.id);
-    const isRootDependencyPredecessor = parentId === 'root' && connections.some(conn =>
-      (conn.type ?? 'dependency') === 'dependency' &&
-      conn.fromId === node.id &&
-      conn.toId === 'root'
+
+    const dependencyConnections = connections.filter(
+      conn => (conn.type ?? 'dependency') === 'dependency'
     );
 
-    if (isRootDependencyPredecessor) {
+    const hasOutgoingDependency = dependencyConnections.some(
+      conn => conn.fromId === node.id
+    );
+
+    const isRootLayoutDependencyNode =
+      parentId === 'root' && hasOutgoingDependency;
+
+    if (isRootLayoutDependencyNode) {
       parentId = undefined;
     } else if (parentId === 'root') {
       if (registrationSettings.create_root_issue) {
