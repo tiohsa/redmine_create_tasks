@@ -180,3 +180,186 @@ test('renders dependency arrows from the source edge to the target edge', () => 
     y: to.y,
   });
 });
+
+test('resolves collision for predecessor of a child node to avoid overlap with parent node', () => {
+  renderCanvas({
+    data: {
+      id: 'root',
+      text: 'Root',
+      children: [
+        {
+          id: 'a',
+          text: 'Task A',
+          direction: 'right',
+          children: [
+            { id: 'b', text: 'Task B', direction: 'right', children: [] }
+          ]
+        },
+        {
+          id: 'c',
+          text: 'Task C',
+          direction: 'left',
+          children: []
+        }
+      ]
+    },
+    connections: [
+      { id: 'conn-c-b', fromId: 'c', toId: 'b', type: 'dependency' }
+    ]
+  });
+
+  const posA = getNodeTranslate('a');
+  const posC = getNodeTranslate('c');
+
+  // CはBの左(X=180)付近になり、AのX(240)と重なる範囲にある。
+  // そのため、Y座標(Y=0)が衝突しないように、十分に離れて配置されていることを確認する。
+  expect(Math.abs(posC.y - posA.y)).toBeGreaterThanOrEqual(170);
+});
+
+test('simple dependency chain: all nodes align on the same Y coordinate', () => {
+  // C -> B -> A (dependency chain), all should be on the same Y (node.x)
+  renderCanvas({
+    data: {
+      id: 'root',
+      text: 'Root',
+      children: [
+        { id: 'a', text: 'Task A', direction: 'right', children: [] },
+        { id: 'b', text: 'Task B', direction: 'left', children: [] },
+        { id: 'c', text: 'Task C', direction: 'left', children: [] },
+      ]
+    },
+    connections: [
+      { id: 'conn-b-a', fromId: 'b', toId: 'a', type: 'dependency' },
+      { id: 'conn-c-b', fromId: 'c', toId: 'b', type: 'dependency' },
+    ]
+  });
+
+  const posA = getNodeTranslate('a');
+  const posB = getNodeTranslate('b');
+  const posC = getNodeTranslate('c');
+
+  // 一直線: 全ノードが同じ Y 座標（node.x → 描画上 Y）
+  expect(posB.y).toBe(posA.y);
+  expect(posC.y).toBe(posA.y);
+
+  // 水平順序: C が最も左、A が最も右
+  expect(posC.x).toBeLessThan(posB.x);
+  expect(posB.x).toBeLessThan(posA.x);
+});
+
+test('dependency with child ticket: reserves vertical space for child', () => {
+  // B has a child ticket B-child; B is a predecessor of A
+  // B-child should get vertical space below B
+  renderCanvas({
+    data: {
+      id: 'root',
+      text: 'Root',
+      children: [
+        { id: 'a', text: 'Task A', direction: 'right', children: [] },
+        {
+          id: 'b', text: 'Task B', direction: 'left',
+          children: [
+            { id: 'b-child', text: 'B Child', direction: 'left', children: [] }
+          ]
+        },
+      ]
+    },
+    connections: [
+      { id: 'conn-b-a', fromId: 'b', toId: 'a', type: 'dependency' },
+    ]
+  });
+
+  const posA = getNodeTranslate('a');
+  const posB = getNodeTranslate('b');
+  const posBChild = getNodeTranslate('b-child');
+
+  // B is to the left of A
+  expect(posB.x).toBeLessThan(posA.x);
+
+  // B-child is below B (node.x increases downward = y increases)
+  expect(posBChild.y).toBeGreaterThan(posB.y);
+
+  // B-child should not overlap with A
+  const yDiff = Math.abs(posBChild.y - posA.y);
+  const xDiff = Math.abs(posBChild.x - posA.x);
+  // Either they are far enough apart vertically or horizontally
+  expect(yDiff >= 170 || xDiff >= 240).toBe(true);
+});
+
+test('two-branch dependency: predecessors stack vertically with enough space', () => {
+  // B1 and B2 are both predecessors of A -> they should stack vertically
+  // A is placed as a child of P to be far enough from root to avoid collision interference
+  renderCanvas({
+    data: {
+      id: 'root',
+      text: 'Root',
+      children: [
+        {
+          id: 'p', text: 'Parent', direction: 'right',
+          children: [
+            { id: 'a', text: 'Task A', direction: 'right', children: [] },
+          ]
+        },
+        { id: 'b1', text: 'Task B1', direction: 'left', children: [] },
+        { id: 'b2', text: 'Task B2', direction: 'left', children: [] },
+      ]
+    },
+    connections: [
+      { id: 'conn-b1-a', fromId: 'b1', toId: 'a', type: 'dependency' },
+      { id: 'conn-b2-a', fromId: 'b2', toId: 'a', type: 'dependency' },
+    ]
+  });
+
+  const posA = getNodeTranslate('a');
+  const posB1 = getNodeTranslate('b1');
+  const posB2 = getNodeTranslate('b2');
+
+  // Both predecessors are to the left of A
+  expect(posB1.x).toBeLessThan(posA.x);
+  expect(posB2.x).toBeLessThan(posA.x);
+
+  // Both at the same horizontal depth
+  expect(posB1.x).toBe(posB2.x);
+
+  // They are vertically stacked with no overlap
+  expect(Math.abs(posB1.y - posB2.y)).toBeGreaterThanOrEqual(170);
+});
+
+test('complex: two-branch dependency with child tickets reserves different space', () => {
+  // B1 has a child (needs more vertical space), B2 has no children
+  // Both are predecessors of A
+  renderCanvas({
+    data: {
+      id: 'root',
+      text: 'Root',
+      children: [
+        { id: 'a', text: 'Task A', direction: 'right', children: [] },
+        {
+          id: 'b1', text: 'Task B1', direction: 'left',
+          children: [
+            { id: 'b1-child', text: 'B1 Child', direction: 'left', children: [] }
+          ]
+        },
+        { id: 'b2', text: 'Task B2', direction: 'left', children: [] },
+      ]
+    },
+    connections: [
+      { id: 'conn-b1-a', fromId: 'b1', toId: 'a', type: 'dependency' },
+      { id: 'conn-b2-a', fromId: 'b2', toId: 'a', type: 'dependency' },
+    ]
+  });
+
+  const posB1 = getNodeTranslate('b1');
+  const posB2 = getNodeTranslate('b2');
+  const posB1Child = getNodeTranslate('b1-child');
+
+  // B1 and B2 are at the same horizontal depth
+  expect(posB1.x).toBe(posB2.x);
+
+  // B1-child should not overlap with B2
+  const childToB2Dist = Math.abs(posB1Child.y - posB2.y);
+  expect(childToB2Dist).toBeGreaterThanOrEqual(170);
+
+  // B1-child should be below B1
+  expect(posB1Child.y).toBeGreaterThan(posB1.y);
+});

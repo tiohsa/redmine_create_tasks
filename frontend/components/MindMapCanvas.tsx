@@ -94,13 +94,35 @@ const buildTreeLayout = (data: MindMapNode, connections: Connection[]) => {
   const nodes = root.descendants();
   const nodeMap = new Map(nodes.map(node => [node.data.id, node]));
 
+  // 1. スワップ (xが縦(深さ)、yが横(兄弟)になる)
   nodes.forEach(node => {
     const horizontal = node.x;
     node.x = node.y;
     node.y = horizontal;
+
+    // 依存関係の有無に関わらず、left 属性を持つノード（およびその子孫）は初期配置で左側に、
+    // right 属性を持つノードは右側に強制的に分離配置します（対称ツリー配置）。
+    if (node.data.id !== 'root') {
+      let isLeft = false;
+      let curr: d3.HierarchyPointNode<MindMapNode> | null = node;
+      while (curr) {
+        if (curr.data.direction === 'left') {
+          isLeft = true;
+          break;
+        }
+        curr = curr.parent;
+      }
+
+      if (isLeft) {
+        node.y = -Math.abs(node.y);
+      } else {
+        node.y = Math.abs(node.y);
+      }
+    }
   });
 
-  const dependencyGroups = new Map<string, d3.HierarchyPointNode<MindMapNode>[]>();
+  // 2. 依存関係の接続マップを作成
+  const predecessorsMap = new Map<string, string[]>(); // targetId -> fromIds
   const dependencyFromIds = new Set<string>();
   connections.forEach(conn => {
     if ((conn.type ?? 'dependency') !== 'dependency') return;
@@ -108,23 +130,286 @@ const buildTreeLayout = (data: MindMapNode, connections: Connection[]) => {
     const to = nodeMap.get(conn.toId);
     if (!from || !to || from.data.id === 'root') return;
     dependencyFromIds.add(from.data.id);
-    dependencyGroups.set(conn.toId, [...(dependencyGroups.get(conn.toId) ?? []), from]);
+    predecessorsMap.set(conn.toId, [...(predecessorsMap.get(conn.toId) ?? []), conn.fromId]);
   });
 
-  dependencyGroups.forEach((predecessors, targetId) => {
+  // 3. トポロジカルソート順の決定（帰りがけ順 DFS ＋ 反転）
+  // 依存元（先行）を先に訪問し、帰りがけ順に記録したものを反転することで、
+  // 常に「後続ノードが先、先行ノードが後」という正しいトポロジカルソート順（order）を得ます。
+  const visited = new Set<string>();
+  const temp = new Set<string>();
+  const sorted: string[] = [];
+  let hasCycle = false;
+
+  const visit = (id: string) => {
+    if (temp.has(id)) {
+      hasCycle = true;
+      return; // サイクルガード
+    }
+    if (visited.has(id)) return;
+
+    temp.add(id);
+    const preds = predecessorsMap.get(id) || [];
+    preds.forEach(predId => {
+      visit(predId);
+    });
+    temp.delete(id);
+
+    visited.add(id);
+    sorted.push(id);
+  };
+
+  // すべてのノードを訪問
+  nodes.forEach(node => {
+    visit(node.data.id);
+  });
+
+  if (hasCycle) {
+    console.warn("Circular dependency detected in mind map layout. Topological sort may be partially incorrect.");
+  }
+
+  const order = [...sorted].reverse();
+
+  // 4. 移動対象の全ノードID（依存元ノードおよびそれらの全子孫ノード）を収集
+  const movingNodeIds = new Set<string>();
+  nodes.forEach(node => {
+    if (dependencyFromIds.has(node.data.id)) {
+      node.descendants().forEach(d => {
+        movingNodeIds.add(d.data.id);
+      });
+    }
+  });
+
+  // 5. 配置済みの確定ノード群を初期化（移動対象ではないノードのみ）
+  const fixedNodes = new Set<d3.HierarchyPointNode<MindMapNode>>(
+    nodes.filter(n => !movingNodeIds.has(n.data.id))
+  );
+
+  // ============================================================
+  // ステップ 1: 各ノードのローカル高さ計算
+  // ============================================================
+  // 各ノードの descendants() から node.x（描画上のY座標 = 兄弟間の縦並び）の
+  // 相対的な上下幅を求める。これは親子関係（子チケット）のみで決まる値。
+  const localHeightMap = new Map<string, { minRelX: number; maxRelX: number; localHeight: number }>();
+  nodes.forEach(node => {
+    const descendants = node.descendants();
+    const relXs = descendants.map(d => d.x - node.x);
+    const minRelX = Math.min(...relXs, 0);
+    const maxRelX = Math.max(...relXs, 0);
+    localHeightMap.set(node.data.id, {
+      minRelX,
+      maxRelX,
+      localHeight: maxRelX - minRelX,
+    });
+  });
+  // ステップ 2: ボトムアップ累積 — totalHeight の構築
+  // ============================================================
+  // sorted（トポロジカル正順: 依存元が先）に沿って、各ノードの totalHeight 境界を計算。
+  const gap = 170; // 垂直方向のノード間隔マージン (d3のnodeSize[1]と同じ)
+  const totalHeightMap = new Map<string, { minRelX: number; maxRelX: number }>();
+
+  // sorted は先行ノードが先（リーフ → ルート方向）
+  sorted.forEach(nodeId => {
+    const local = localHeightMap.get(nodeId);
+    if (!local) return;
+
+    // nodeId をターゲットとする先行グループを取得
+    const predIds = predecessorsMap.get(nodeId) || [];
+    const predecessors = predIds
+      .map(id => nodeMap.get(id))
+      .filter((n): n is d3.HierarchyPointNode<MindMapNode> => !!n);
+
+    if (predecessors.length === 0) {
+      // 先行がない場合は自身のローカル高さ境界をそのまま使用
+      totalHeightMap.set(nodeId, { minRelX: local.minRelX, maxRelX: local.maxRelX });
+      return;
+    }
+
+    // 先行グループがある場合、それぞれの totalHeight（計算済み）を元に
+    // 相対位置をシミュレーションして、グループ全体の広がりを計算
+    const subtrees = predecessors.map(pred => {
+      const th = totalHeightMap.get(pred.data.id) || {
+        minRelX: localHeightMap.get(pred.data.id)!.minRelX,
+        maxRelX: localHeightMap.get(pred.data.id)!.maxRelX,
+      };
+      return {
+        node: pred,
+        minRelX: th.minRelX,
+        maxRelX: th.maxRelX,
+      };
+    });
+
+    let currentX = 0;
+    const positions: number[] = [];
+    subtrees.forEach((subtree, index) => {
+      if (index > 0) {
+        const prev = subtrees[index - 1];
+        currentX += prev.maxRelX + gap - subtree.minRelX;
+      }
+      positions.push(currentX);
+    });
+
+    // センタリング
+    const totalMin = positions[0] + subtrees[0].minRelX;
+    const totalMax = positions[positions.length - 1] + subtrees[subtrees.length - 1].maxRelX;
+    const centerX = (totalMin + totalMax) / 2;
+
+    // nodeId（ターゲット）から見た先行グループ全体の相対的な広がり
+    const groupMin = totalMin - centerX;
+    const groupMax = totalMax - centerX;
+
+    // nodeId 自身のローカルな広がりと先行グループの広がりをマージ
+    const mergedMin = Math.min(local.minRelX, groupMin);
+    const mergedMax = Math.max(local.maxRelX, groupMax);
+
+    totalHeightMap.set(nodeId, { minRelX: mergedMin, maxRelX: mergedMax });
+  });
+
+  // ============================================================
+  // ステップ 3: 配置適用 — totalHeight を使った垂直間隔決定
+  // ============================================================
+  order.forEach(targetId => {
     const target = nodeMap.get(targetId);
     if (!target) return;
-    const midpoint = (predecessors.length - 1) / 2;
 
-    predecessors.forEach((predecessor, index) => {
-      const nextX = target.x + (index - midpoint) * 130;
+    const predIds = predecessorsMap.get(targetId) || [];
+    const predecessors = predIds
+      .map(id => nodeMap.get(id))
+      .filter((n): n is d3.HierarchyPointNode<MindMapNode> => !!n);
+
+    if (predecessors.length === 0) return;
+
+    // 各先行ノードのサブツリー情報と累積された totalHeight 境界を取得
+    const subtrees = predecessors.map(pred => {
+      const th = totalHeightMap.get(pred.data.id) || {
+        minRelX: localHeightMap.get(pred.data.id)!.minRelX,
+        maxRelX: localHeightMap.get(pred.data.id)!.maxRelX,
+      };
+      return {
+        node: pred,
+        minRelX: th.minRelX,
+        maxRelX: th.maxRelX,
+      };
+    });
+
+    // 垂直方向の相対位置を決定（各サブツリーの totalHeight を使って間隔を確保）
+    let currentX = 0; // node.x = 描画上Y座標
+    const positions: number[] = [];
+
+    subtrees.forEach((subtree, index) => {
+      if (index > 0) {
+        const prev = subtrees[index - 1];
+        // 前のサブツリーの下端 + マージン
+        currentX += prev.maxRelX + gap - subtree.minRelX;
+      }
+      positions.push(currentX);
+    });
+
+    // センタリング: 依存元グループ全体の中心が target.x になるようにする
+    const totalMin = positions[0] + subtrees[0].minRelX;
+    const totalMax = positions[positions.length - 1] + subtrees[subtrees.length - 1].maxRelX;
+    const centerX = (totalMin + totalMax) / 2;
+    const offsetToTarget = target.x - centerX;
+
+    // 配置グループに属する全ノードIDのセット（自己衝突判定から除外するため）
+    const currentGroupNodeIds = new Set<string>();
+    subtrees.forEach(subtree => {
+      subtree.node.descendants().forEach(desc => {
+        currentGroupNodeIds.add(desc.data.id);
+      });
+    });
+
+    // パフォーマンス改善: 現在の配置グループ以外の固定ノードを抽出（配列変換はここで1回だけ）
+    const otherFixedNodes = Array.from(fixedNodes).filter(fixed => !currentGroupNodeIds.has(fixed.data.id));
+
+    // 全サブツリーの子孫ノードの相対座標と衝突候補を事前計算
+    const groupDescInfos: { relX: number; potentialColliders: d3.HierarchyPointNode<MindMapNode>[] }[] = [];
+
+    subtrees.forEach((subtree, index) => {
+      const baseX = positions[index] + offsetToTarget; // グループ内でのこのサブツリーの node.x
+      const baseY = target.y - 300;                     // 共通の node.y
+
+      subtree.node.descendants().forEach(desc => {
+        const descRelX = desc.x - subtree.node.x;
+        const descRelY = desc.y - subtree.node.y;
+        const descTestY = baseY + descRelY;
+
+        // すでに固定された他のノードから、描画上X座標（依存関係の深さ）が近いものを抽出
+        const potentialColliders = otherFixedNodes.filter(fixed => {
+          return Math.abs(descTestY - fixed.y) < 240;
+        });
+
+        groupDescInfos.push({
+          relX: baseX + descRelX, // グループ原点(offsetToTarget=0時)からの相対 node.x
+          potentialColliders,
+        });
+      });
+    });
+
+    // 衝突回避（安全ネット）: グループ全体を1つの塊として上下にずらす
+    let groupShift = 0;
+    let step = 0;
+    let collision = true;
+    const MAX_STEPS = 100; // 無限ループ防止用の最大ステップ数
+
+    while (collision && step < MAX_STEPS) {
+      collision = false;
+
+      if (step === 0) {
+        groupShift = 0;
+      } else {
+        const magnitude = Math.floor((step + 1) / 2) * gap;
+        const sign = step % 2 === 1 ? 1 : -1;
+        groupShift = magnitude * sign;
+      }
+
+      for (const info of groupDescInfos) {
+        const testX = info.relX + groupShift;
+
+        for (const fixed of info.potentialColliders) {
+          const dy = Math.abs(testX - fixed.x);
+
+          if (dy < gap) {
+            collision = true;
+            break;
+          }
+        }
+        if (collision) break;
+      }
+
+      if (collision) {
+        step++;
+      }
+    }
+
+    if (step >= MAX_STEPS) {
+      console.error(
+        `Layout safety net failed to resolve collision: predecessor group of "${targetId}" reached maximum search steps (${MAX_STEPS}).`
+      );
+    } else if (step > 0) {
+      console.warn(
+        `Layout safety net triggered: predecessor group of "${targetId}" shifted by ${groupShift}px ` +
+        `(${step} steps) to avoid collision with fixed nodes. ` +
+        `This may indicate incomplete bottom-up space reservation.`
+      );
+    }
+
+    // 実際の平行移動の適用
+    subtrees.forEach((subtree, index) => {
+      const nextX = positions[index] + offsetToTarget + groupShift;
       const nextY = target.y - 300;
-      const deltaX = nextX - predecessor.x;
-      const deltaY = nextY - predecessor.y;
 
-      predecessor.descendants().forEach(descendant => {
+      const deltaX = nextX - subtree.node.x;
+      const deltaY = nextY - subtree.node.y;
+
+      subtree.node.descendants().forEach(descendant => {
         descendant.x += deltaX;
         descendant.y += deltaY;
+      });
+
+      // 配置完了したノードを fixedNodes に追加（以降の衝突判定に反映）
+      subtree.node.descendants().forEach(descendant => {
+        fixedNodes.add(descendant);
       });
     });
   });
